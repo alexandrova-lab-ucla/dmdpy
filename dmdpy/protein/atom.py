@@ -26,7 +26,10 @@ class Atom:
             self.coords = np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])])
             self.id = line[12:16]
 
-        self._logger.debug("Initiallizing rest of vars")
+        if self.element.lower() == 'eh':
+            self.element = 'h'
+
+        self._logger.debug("Initializing rest of vars")
         self.residue = None
         self.chain = None
         self.molecule = None
@@ -37,10 +40,6 @@ class Atom:
     def set_residue(self, res):
         self._logger.debug(f"Setting residue for atom: {str(self)} to {str(res)}")
         self.residue = res
-
-    # def set_molecule(self, mol: Molecule):
-    #     self._logger.debug(f"Setting molecule for atom: {str(self)} to {str(mol)}")
-    #     self.molecule = mol
 
     def set_chain(self, chain):
         self._logger.debug(f"Setting chain for atom: {str(self)} to {str(chain)}")
