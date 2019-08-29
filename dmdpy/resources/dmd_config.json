@@ -1,6 +1,6 @@
 {
     "PATHS": {
-        "DMD_DIR" : "u/home/a/ana/bin/DMD/bin",
-        "parameters" : "u/home/a/ana/bin/DMD/parameters"
+        "DMD_DIR" : "/u/home/a/ana/project-ana/bin/DMD/bin",
+        "parameters" : "/u/home/a/ana/project-ana/bin/DMD/parameter"
     }
 }
