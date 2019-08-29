@@ -25,17 +25,8 @@ class setupDMDjob:
         self._protein = utilities.load_pdb("test.pdb")
         self.make_topparam()
         self.make_inConstr()
-
-    def make_inConstr(self):
-        # Need to also have the user constraints placed into here at some point, but that can wait for the time being!
-        with open('inConstr', 'a') as inConstr_file:
-            with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
-                       stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
-                       env=os.environ) as shell:
-                while shell.poll() is None:
-                    logger.debug(shell.stderr.readline().strip())
-
-        logger.debug("Finished making the inConstr file!")
+        self.make_state_file()
+        self.make_start_file()
 
     def make_topparam(self):
         with open('topparam', 'w') as topparam_file:
@@ -64,5 +55,40 @@ class setupDMDjob:
                 # Add the name to the topparm_file!
                 topparam_file.write(f"MOL {residue.name} ./{residue.name}.mol2")
 
+    def make_inConstr(self):
+        # Need to also have the user constraints placed into here at some point, but that can wait for the time being!
+        with open('inConstr', 'a') as inConstr_file:
+            with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
+                       stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
+                       env=os.environ) as shell:
+                while shell.poll() is None:
+                    logger.debug(shell.stderr.readline().strip())
 
+        # TODO: add the user specified constraints now!
+        logger.debug("Finished making the inConstr file!")
 
+    def make_start_file(self):
+        with open("dmd_start", 'w') as dmdstart:
+            dmdstart.write(f"THERMOSTAT     {self._raw_parameters['Thermostat']}")
+            dmdstart.write(f"T_NEW          {self._raw_parameters['Initial Temperature']}")
+            dmdstart.write(f"T_LIMIT        {self._raw_parameters['Final Temperature']}")
+            dmdstart.write(f"HEAT_X_C       {self._raw_parameters['HEAT_X_C']}")
+            dmdstart.write(f"RESTART_FILE   {self._raw_parameters['Restart File']}")
+            dmdstart.write(f"RESTART_DT     {self._raw_parameters['Restart dt']}")
+            dmdstart.write(f"ECHO_FILE      {self._raw_parameters['Echo File']}")
+            dmdstart.write(f"ECHO_DT        {self._raw_parameters['Echo dt']}")
+            dmdstart.write(f"MOVIE_FILE     {self._raw_parameters['Movie File']}")
+            dmdstart.write(f"START_TIME     {self._raw_parameters['Start time']}")
+            dmdstart.write(f"MOVIE_DT       {self._raw_parameters['Movie dt']}")
+            dmdstart.write(f"MAX_TIME       {self._raw_parameters['Max time']}")
+
+        logger.debug("made the start file!")
+
+    def make_state_file(self):
+        with Popen(f"complex-1.linux -P {self._dmd_config['PATHS']['parameters']} -I {self._protein.name} -T topparam -D 200 -p param -s state -S 123 -C inConstr -c outConstr",
+                   stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
+            while shell.poll() is None:
+                logger.debug(shell.stdout.readline().strip())
+                logger.error(shell.stderr.readline().strip())
+
+        logger.debug("Made the state file!")
