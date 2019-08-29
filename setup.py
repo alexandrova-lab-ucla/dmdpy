@@ -6,5 +6,5 @@ setup(
     author="Matthew Hennefarth",
     packages=find_packages(),
     package_data={'': ['.json', '*.j2', '*.config']},
-    scripts=['dmdpy/setupjob.py']
+    scripts=['dmdpy/bin/setupdmd.py']
 )
