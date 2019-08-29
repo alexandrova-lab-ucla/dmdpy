@@ -2,6 +2,7 @@
 
 import os
 import logging
+import json
 from subprocess import Popen, PIPE
 
 
@@ -17,7 +18,9 @@ class setupDMDjob:
 
         # Instance variables
         logger.debug("Initializing Variables")
-        self._raw_parameters = parameters
+        with open('dmdinput.json') as inp:
+            self._raw_parameters = json.load(inp)
+
         self._run_directory = dir
         self._initial_directory = os.getcwd()
         self._dmd_config = utilities.load_dmd_config()
