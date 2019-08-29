@@ -72,18 +72,18 @@ class setupDMDjob:
 
     def make_start_file(self):
         with open("dmd_start", 'w') as dmdstart:
-            dmdstart.write(f"THERMOSTAT     {self._raw_parameters['Thermostat']}")
-            dmdstart.write(f"T_NEW          {self._raw_parameters['Initial Temperature']}")
-            dmdstart.write(f"T_LIMIT        {self._raw_parameters['Final Temperature']}")
-            dmdstart.write(f"HEAT_X_C       {self._raw_parameters['HEAT_X_C']}")
-            dmdstart.write(f"RESTART_FILE   {self._raw_parameters['Restart File']}")
-            dmdstart.write(f"RESTART_DT     {self._raw_parameters['Restart dt']}")
-            dmdstart.write(f"ECHO_FILE      {self._raw_parameters['Echo File']}")
-            dmdstart.write(f"ECHO_DT        {self._raw_parameters['Echo dt']}")
-            dmdstart.write(f"MOVIE_FILE     {self._raw_parameters['Movie File']}")
-            dmdstart.write(f"START_TIME     {self._raw_parameters['Start time']}")
-            dmdstart.write(f"MOVIE_DT       {self._raw_parameters['Movie dt']}")
-            dmdstart.write(f"MAX_TIME       {self._raw_parameters['Max time']}")
+            dmdstart.write(f"THERMOSTAT     {self._raw_parameters['Thermostat']}\n")
+            dmdstart.write(f"T_NEW          {self._raw_parameters['Initial Temperature']}\n")
+            dmdstart.write(f"T_LIMIT        {self._raw_parameters['Final Temperature']}\n")
+            dmdstart.write(f"HEAT_X_C       {self._raw_parameters['HEAT_X_C']}\n")
+            dmdstart.write(f"RESTART_FILE   {self._raw_parameters['Restart File']}\n")
+            dmdstart.write(f"RESTART_DT     {self._raw_parameters['Restart dt']}\n")
+            dmdstart.write(f"ECHO_FILE      {self._raw_parameters['Echo File']}\n")
+            dmdstart.write(f"ECHO_DT        {self._raw_parameters['Echo dt']}\n")
+            dmdstart.write(f"MOVIE_FILE     {self._raw_parameters['Movie File']}\n")
+            dmdstart.write(f"START_TIME     {self._raw_parameters['Start time']}\n")
+            dmdstart.write(f"MOVIE_DT       {self._raw_parameters['Movie dt']}\n")
+            dmdstart.write(f"MAX_TIME       {self._raw_parameters['Max time']}\n")
 
         logger.debug("made the start file!")
 
@@ -92,6 +92,6 @@ class setupDMDjob:
                    stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
             while shell.poll() is None:
                 logger.debug(shell.stdout.readline().strip())
-                logger.error(shell.stderr.readline().strip())
+                logger.debug(shell.stderr.readline().strip())
 
         logger.debug("Made the state file!")
