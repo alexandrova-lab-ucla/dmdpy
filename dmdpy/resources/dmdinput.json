@@ -16,19 +16,15 @@
     "Start time" : 0,
     "Max time" : 10000,
 
-    "All residues free" : false,
-
-    "Custom protonation states" : {
-        "Tyr 400" : "deprotonated"
-    },
-    "Frozen atoms" : {
-
-    },
-    "Disulfide Bridges" : [
-        ["cysteine", "cysteine", "displacement"],
+    "Custom protonation states" : [
+        ["Chain", Res, "protonated"]
+    ],
+    "Frozen atoms" : [
+        ["Chain", Res, "ID"],
+        ["Chain", Res, "ID"]
     ],
     "Restrict Displacement" : [
-        ["atom1", "atom 2", "displacement"],
+        [["Chain", Res, "ID"], ["Chain", Res, "ID"], 0.2]
     ]
 
 }

@@ -13,6 +13,9 @@ class Protein:
     __slots__ = ['chains', '_logger', 'non_residues', 'metals', 'name', 'sub_chain']
 
     def __init__(self, name: str, chains: [Chain]):
+
+        #TODO: add a flag that is enabled if reformat is called for the protein to speed up algorithm of finding atoms/residues
+
         self._logger = logging.getLogger(__name__)
 
         self._logger.debug(f"Initializing vars for protein {name}")
@@ -21,9 +24,6 @@ class Protein:
         self.non_residues = []
         self.metals = []
         self.sub_chain = Chain()
-
-        # Reformatting the protein
-        self.reformat_protein()
 
         self._logger.debug(f"Created protein {str(self)}")
 
@@ -119,6 +119,27 @@ class Protein:
 
             self._logger.debug("Adding substrate chain to master chain")
             self.sub_chain = sub_chain
+
+    def get_atom(self, identifier):
+        for chain in self.chains:
+            if chain.name == identifier[0]:
+                for residue in chain.residues:
+                    if residue.number == identifier[1]:
+                        for atom in residue.atoms:
+                            if atom.id == identifier[2]:
+                                return atom
+        self._logger.error("Could not find requested atom")
+        raise ValueError
+
+    def get_residue(self, identifier):
+        for chain in self.chains:
+            if chain.name == identifier[0]:
+                for residue in chain.residues:
+                    if residue.number == identifier[1]:
+                        return residue
+
+        self._logger.error("Could not find requested residue")
+        raise ValueError
 
     def write_pdb(self):
         self._logger.debug(f"Writing out pdb: {self}")
