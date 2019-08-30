@@ -3,28 +3,32 @@
     "Initial Temperature" : 0.1,
     "Final Temperature" : 0.1,
     "HEAT_X_C" : 0.1,
-
     "Echo File" : "echo",
     "Echo dt" : 10,
-
     "Movie File" : "movie",
     "Movie dt" : 10,
-
     "Restart File" : "dmd_restart",
     "Restart dt" : 10,
-
     "Start time" : 0,
     "Max time" : 10000,
 
+    "Freeze Non-Residues": false,
+    "Enforce Metallic Restriction": false,
+
     "Custom protonation states" : [
-        ["Chain", Res, "ID", "protonated"]
+        ["Chain", ResNum, "protonated"]
     ],
-    "Frozen atoms" : [
-        ["Chain", Res, "ID"],
-        ["Chain", Res, "ID"]
-    ],
+    "Frozen atoms" : {
+        "Chains": ["Chain1", "Chain2"],
+        "Residues": [["Chain", ResNum] , ["Chain", ResNum] ],
+        "Atoms" : [
+            ["Chain", ResNum, "ID"],
+            ["Chain", ResNum, "ID"],
+            ["Chain", ResNum, "ID"]
+        ],
+    },
     "Restrict Displacement" : [
-        [["Chain", Res, "ID"], ["Chain", Res, "ID"], 0.2]
+        [["Chain", ResNum, "ID"], ["Chain", ResNum, "ID"], 0.2]
     ]
 
 }

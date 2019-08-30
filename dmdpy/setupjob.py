@@ -15,6 +15,12 @@ logger = logging.getLogger(__name__)
 
 os.environ["PATH"] += os.pathsep + "/home/mhennefarth/Programs/dmd/bin"
 
+"""
+1) Reformat pdb as best as I can
+2) Generate input files
+3) Run quick step of DMD to ensure it works
+
+"""
 class setupDMDjob:
 
     # Have it do a small DMD step after everything is donew
@@ -95,6 +101,7 @@ class setupDMDjob:
             self._protein = pro
 
         # These should be pointers to these objects so that if they change, it is updated in this list automatically
+        # TODO: change this to the way it is in dmdinput.json
         self._static = []
         for static_atom in self._raw_parameters["Frozen atoms"]:
             self._static.append(self._protein.get_atom(static_atom))
@@ -119,6 +126,7 @@ class setupDMDjob:
 
         # TODO Have it run a quick DMD step to ensure it works properly
         # Can also use this to reformat the pdb!
+        # But then, we need to figure out how to link the initial.pdb to the new.pdb (output from single step of dmd)
 
     def make_topparam(self):
         try:
