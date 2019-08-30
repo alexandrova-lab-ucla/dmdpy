@@ -128,7 +128,8 @@ class Protein:
                         for atom in residue.atoms:
                             if atom.id == identifier[2]:
                                 return atom
-        self._logger.error("Could not find requested atom")
+
+        self._logger.error(f"Could not find requested atom {identifier}")
         raise ValueError
 
     def get_residue(self, identifier):
@@ -143,7 +144,7 @@ class Protein:
 
     def write_pdb(self):
         self._logger.debug(f"Writing out pdb: {self}")
-        with open(f'{self.name}_', 'w') as pdb:
+        with open(self.name, 'w') as pdb:
             for chain in self.chains:
                 for residue in chain.residues:
                     for atom in residue.atoms:

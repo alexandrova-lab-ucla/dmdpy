@@ -17,7 +17,7 @@
     "Max time" : 10000,
 
     "Custom protonation states" : [
-        ["Chain", Res, "protonated"]
+        ["Chain", Res, "ID", "protonated"]
     ],
     "Frozen atoms" : [
         ["Chain", Res, "ID"],

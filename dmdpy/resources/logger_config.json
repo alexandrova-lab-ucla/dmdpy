@@ -37,7 +37,7 @@
             "handlers": ["console"],
             "level": "DEBUG"
         },
-        "dmdpy.protein.atom" : {
+        "dmdpy.protein" : {
              "handlers": ["console"],
             "level": "INFO"
         }

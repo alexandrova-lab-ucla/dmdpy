@@ -24,7 +24,7 @@ class Atom:
             self._logger.debug("Adding elements line")
             self.element = line[76:78].strip().lower()
             self.coords = np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])])
-            self.id = line[12:16]
+            self.id = line[12:16].strip().upper()
 
         if self.element.lower() == 'eh':
             self.element = 'h'
@@ -48,6 +48,9 @@ class Atom:
     def set_number(self, num: int):
         self._logger.debug(f"Setting number for atom: {str(self)} to {str(num)}")
         self.number = num
+
+    def write_inConstr(self):
+        return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.number}.{self.id.upper()}"
 
     def pdb_line(self):
         return '{:<6}{:>5} {:>4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(

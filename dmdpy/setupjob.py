@@ -3,6 +3,8 @@
 import os
 import logging
 import json
+import pkg_resources
+import shutil
 from subprocess import Popen, PIPE
 
 
@@ -11,6 +13,7 @@ import dmdpy.protein.protein as protein
 
 logger = logging.getLogger(__name__)
 
+os.environ["PATH"] += os.pathsep + "/home/mhennefarth/Programs/dmd/bin"
 
 class setupDMDjob:
 
@@ -26,6 +29,7 @@ class setupDMDjob:
         self._initial_directory = os.getcwd()
         logger.debug(f"Set initial directory to: {self._initial_directory}")
         self._dmd_config = utilities.load_dmd_config()
+        self._protein = None
 
         try:
             logger.debug(f"Changing to run directory: {self._run_directory}" )
@@ -41,7 +45,13 @@ class setupDMDjob:
             if not os.path.isfile("dmdinput.json"):
                 logger.error("Could not find dmdinput.json")
                 logger.error("I will copy over a default dmdinput.json for you to edit")
-                # TODO have it copy over a default dmdinput.json
+                try:
+                    shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'dmdinput.json'), './')
+
+                except OSError:
+                    logger.exception("Could not copy over default dmdinput.json!")
+                    raise
+
                 raise ValueError("dmdinput.json")
 
             try:
@@ -62,14 +72,27 @@ class setupDMDjob:
 
         # TODO: check to see if parameters is good!
 
-        # TODO change test.pdb to a searched pdb!
         if pro is None:
-            self._protein = utilities.load_pdb("test.pdb")
+            logger.debug("Checking for a pdb")
+            files = [f for f in os.listdir('./') if os.path.isfile(os.path.join('./', f))]
+            logger.debug(f"The files in {self._run_directory} are :")
+            logger.debug(files)
+            for f in files:
+                if os.path.splitext(f)[-1].lower() == ".pdb":
+                    logger.debug(f"Found a pdb file to use: {f}")
+                    try:
+                        self._protein = utilities.load_pdb(f)
+
+                    except:
+                        logger.exception("You idiot!")
+                        raise
+
+            if self._protein is None:
+                logger.error("No pdb file in the run directory")
+                raise ValueError
 
         else:
             self._protein = pro
-
-        # TODO have it reupdate the/add params to the atoms via inConstr file stuff prior to reformatting pdb
 
         # These should be pointers to these objects so that if they change, it is updated in this list automatically
         self._static = []
@@ -78,7 +101,7 @@ class setupDMDjob:
 
         self._protonation_states = []
         for prot_atom in self._raw_parameters["Custom protonation states"]:
-            self._protonation_states.append([self._protein.get_residue(prot_atom[:1]), prot_atom[2]])
+            self._protonation_states.append([self._protein.get_atom(prot_atom[:2]), prot_atom[3]])
 
         self._displacement = []
         for atom_pair in self._raw_parameters["Restrict Displacement"]:
@@ -116,7 +139,6 @@ class setupDMDjob:
             raise
 
     def make_inConstr(self):
-        # Need to also have the user constraints placed into here at some point, but that can wait for the time being!
         # TODO: wrap this is sexy try/except
         with open('inConstr', 'a') as inConstr_file:
             with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
@@ -125,7 +147,23 @@ class setupDMDjob:
                 while shell.poll() is None:
                     logger.debug(shell.stderr.readline().strip())
 
-        # TODO: add the user specified constraints now!
+            for static_atom in self._static:
+                logger.debug(f"Freezing atom: {static_atom}")
+                inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
+
+            for pro_atom in self._protonation_states:
+                if pro_atom[1].lower() == "protonate":
+                    logger.debug(f"Protonating atom: {pro_atom[0]}")
+                    inConstr_file.write(f"Protonate {pro_atom[0].write_inConstr()}\n")
+
+                elif pro_atom[1].lower() == "deprotonate":
+                    logger.debug(f"Deprotonating atom: {pro_atom[0]}")
+                    inConstr_file.write(f"Deprotonate {pro_atom[0].write_inConstr()}\n")
+
+            for disp_atom in self._displacement:
+                logger.debug(f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
+                inConstr_file.write(f"AtomPairRel {disp_atom[0].write_inConstr()} {disp_atom[1].write_inConstr()} -{disp_atom[2]} +{disp_atom[2]}\n")
+
         logger.debug("Finished making the inConstr file!")
 
     def make_start_file(self):
@@ -151,9 +189,9 @@ class setupDMDjob:
         logger.debug("made the start file!")
 
     def make_state_file(self):
-        logger.debug("Calling complex-1.linux")
+        logger.debug("Calling complex.linux")
         try:
-            with Popen(f"complex-1.linux -P {self._dmd_config['PATHS']['parameters']} -I {self._protein.name} -T topparam -D 200 -p param -s state -S 123 -C inConstr -c outConstr",
+            with Popen(f"complex.linux -P {self._dmd_config['PATHS']['parameters']} -I {self._protein.name} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                        stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
                 while shell.poll() is None:
                     logger.debug(shell.stdout.readline().strip())
