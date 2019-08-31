@@ -28,43 +28,52 @@ class Protein:
         self._logger.debug(f"Created protein {str(self)}")
 
     def reformat_protein(self):
-        res_num = 1
+        res_renum = 1
         chain_let = 'A'
-        for (chain_num, chain) in enumerate(self.chains):
-            atom_num = 1
-            for (residue_num, residue) in enumerate(chain.residues):
 
+        chain_num = 0
+        while chain_num < len(self.chains):
+            atom_renum = 1
+            residue_num = 0
+            while residue_num < len(self.chains[chain_num].residues):
                 # Case where we have a non-residue/metal, most likely substrate
-                if residue.name not in constants.AMINO_ACID_RESIDUES:
-                    for (atom_num, atom) in enumerate(residue.atoms):
+                if self.chains[chain_num].residues[residue_num].name not in constants.AMINO_ACID_RESIDUES:
+                    atom_num = 0
+                    while atom_num < len(self.chains[chain_num].residues[residue_num].atoms):
                         # Remove metal from this, and make it its own residue essentially
-                        if atom.element in constants.METALS:
-                            self._logger.debug(f"Found a metal: {atom} in residue {residue}")
-                            self.metals.append(atom)
-                            del residue[atom_num]
+                        if self.chains[chain_num].residues[residue_num].atoms[atom_num].element in constants.METALS:
+                            self._logger.debug(f"Found a metal: {self.chains[chain_num].residues[residue_num].atoms[atom_num]} in residue {self.chains[chain_num].residues[residue_num]}")
+                            self.metals.append(self.chains[chain_num].residues[residue_num].atoms.pop(atom_num))
+                            atom_num -= 1
 
-                    self._logger.debug(f"Removing residue: {residue}")
-                    self.non_residues.append(residue)
-                    del chain.residues[residue_num]
-
-                else:
-                    #update residue, and atomic numbering for normal atoms
-                    self._logger.debug(f"Renumbering residue: {residue} to {res_num} and its atoms starting at {atom_num}")
-                    residue.number = res_num
-                    for atom in residue.atoms:
-                        atom.number = atom_num
                         atom_num += 1
 
-                    res_num += 1
+                    self._logger.debug(f"Removing residue: {self.chains[chain_num].residues[residue_num]}")
+                    if self.chains[chain_num].residues[residue_num].atoms:
+                        self.non_residues.append(self.chains[chain_num].residues.pop(residue_num))
 
-            # Check if we now just have an empty chain
-            if not chain.residues:
-                self._logger.debug(f"Removing chain: {chain}")
+                    else:
+                        del self.chains[chain_num].residues[residue_num]
+
+                else:
+                    # update residue, and atomic numbering for normal atoms
+                    self._logger.debug(f"Renumbering residue: {self.chains[chain_num].residues[residue_num]} to {res_renum} and its atoms starting at {atom_renum}")
+                    self.chains[chain_num].residues[residue_num].number = res_renum
+                    for atom in self.chains[chain_num].residues[residue_num].atoms:
+                        atom.number = atom_renum
+                        atom_renum += 1
+
+                    res_renum += 1
+                    residue_num += 1
+
+            if not self.chains[chain_num].residues:
+                self._logger.debug(f"Removing chain: {self.chains[chain_num]}")
                 del self.chains[chain_num]
 
             else:
-                chain.name = chain_let
+                self.chains[chain_num].name = chain_let
                 chain_let = chr(ord(chain_let) + 1)
+                chain_num += 1
 
         #Now we add in the non-residues and the metals into a new chain!
         res_num = 1
@@ -107,6 +116,7 @@ class Protein:
                 metal_num += 1
                 atom_num += 1
 
+            # TODO there is an issue with this for loop
             for residue in self.non_residues:
                 self._logger.debug(f"Adding residue {residue} to substrate chain")
                 residue.number = res_num

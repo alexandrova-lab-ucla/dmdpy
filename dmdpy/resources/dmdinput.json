@@ -13,7 +13,7 @@
     "Max time" : 10000,
 
     "Freeze Non-Residues": false,
-    "Enforce Metallic Restriction": false,
+    "Restrict Metal Ligands": false,
 
     "Custom protonation states" : [
         ["Chain", ResNum, "protonated"]

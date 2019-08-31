@@ -7,7 +7,7 @@ import dmdpy.utilities.constants as constants
 
 class Atom:
 
-    __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'molecule', 'number']
+    __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'number']
 
     def __init__(self, line: str = None, element: str = None, coords: np.array = None, id=None):
 
@@ -26,13 +26,14 @@ class Atom:
 
         self.residue = None
         self.chain = None
-        self.molecule = None
         self.number = None
 
     def write_inConstr(self):
         return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.number}.{self.id.upper()}"
 
     def pdb_line(self):
+        print(self)
+        print(self.coords)
         return '{:<6}{:>5} {:>4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(
             'ATOM' if self.residue.name in constants.AMINO_ACID_RESIDUES else "HETATM",
             self.number, self.id, self.residue.name, self.chain.name, self.residue.number,
