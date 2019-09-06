@@ -140,7 +140,7 @@ class setupDMDjob:
                         logger.error("Error in making mol2 file")
                         raise
 
-                    topparam_file.write(f"MOL {residue.name} ./{residue.name}.mol2")
+                    topparam_file.write(f"MOL {residue.name} ./{residue.name}.mol2\n")
 
         except IOError:
             logger.exception("Error with writing topparam file!")
@@ -199,8 +199,12 @@ class setupDMDjob:
     def make_state_file(self):
         logger.debug("Calling complex.linux")
         try:
+            # TODO: There is an issue here with complex.linux not actually running
+            # It is coming from the mol2 of the substrate...interesting...
+            # There is a Segmentation fault (core dumped) error that occurs, asking Jack if he knows what the issue is
+            # Jack thinks it is the segfault mike wrote in his HACK ALERT section
             with Popen(f"complex.linux -P {self._dmd_config['PATHS']['parameters']} -I {self._protein.name} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
-                       stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
+                       stdout=PIPE, stderr=PIPE, universal_newlines=True, shell=True, env=os.environ) as shell:
                 while shell.poll() is None:
                     logger.debug(shell.stdout.readline().strip())
                     logger.debug(shell.stderr.readline().strip())

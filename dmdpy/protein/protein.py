@@ -80,7 +80,7 @@ class Protein:
         if self.non_residues or self.metals:
             self._logger.debug("Creating a substrate/metal chain")
             atom_num = 1
-            sub_chain = Chain(chr(ord(self.chains[-1].name) + 1))
+            self.sub_chain.name = chr(ord(self.chains[-1].name) + 1)
 
             # Want to sort the metals!
             self.metals.sort(key=lambda metal: metal.element)
@@ -94,10 +94,10 @@ class Protein:
                     cur_metal = metal.element
 
                 if len(metal.element) == 1:
-                    name = metal.element + f"{metal_num:02d}"
+                    name = metal.element.upper() + f"{metal_num:02d}"
 
                 elif len(metal.element) == 2:
-                    name = metal.element + f"{metal_num:01d}"
+                    name = metal.element.upper() + f"{metal_num:01d}"
 
                 else:
                     self._logger.error(f"Encountered a metal with an unusual element ID: {metal}")
@@ -107,28 +107,31 @@ class Protein:
                     self._logger.error(f"The name for this is too long: {metal} with name: {name}")
                     raise ValueError
 
+                # DMD does not know how to handle any other metal but zinc
+                if metal.element.lower() != "zn":
+                    metal.element = 'Zn'
+
                 metal_residue = Residue(name=name, number=res_num)
                 self._logger.debug(f"Adding residue {metal_residue} to substrate chain")
+                self.sub_chain.add_residue(metal_residue)
                 metal_residue.add_atom(metal)
-                sub_chain.add_residue(metal_residue)
 
                 res_num += 1
                 metal_num += 1
                 atom_num += 1
 
-            # TODO there is an issue with this for loop
+            # Issue with assigning chain to atom
             for residue in self.non_residues:
                 self._logger.debug(f"Adding residue {residue} to substrate chain")
+                self.sub_chain.add_residue(residue)
                 residue.number = res_num
                 for atom in residue.atoms:
                     atom.number = atom_num
                     atom_num += 1
 
-                sub_chain.add_residue(residue)
                 res_num += 1
 
             self._logger.debug("Adding substrate chain to master chain")
-            self.sub_chain = sub_chain
 
     def get_atom(self, identifier):
         for chain in self.chains:
@@ -165,4 +168,4 @@ class Protein:
                     pdb.write(atom.pdb_line())
                 pdb.write('TER\n')
 
-            pdb.write('ENDMDL')
+            pdb.write('ENDMDL\n')

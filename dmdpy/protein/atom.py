@@ -34,7 +34,7 @@ class Atom:
     def pdb_line(self):
         print(self)
         print(self.coords)
-        return '{:<6}{:>5} {:>4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(
+        return '{:<6}{:>5} {:<4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(
             'ATOM' if self.residue.name in constants.AMINO_ACID_RESIDUES else "HETATM",
             self.number, self.id, self.residue.name, self.chain.name, self.residue.number,
             self.coords[0], self.coords[1], self.coords[2], self.element.capitalize())
