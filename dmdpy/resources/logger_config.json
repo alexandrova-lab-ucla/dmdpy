@@ -47,7 +47,7 @@
         "console" : {
             "class" : "logging.StreamHandler",
             "level" : "DEBUG",
-            "formatter" : "verbose",
+            "formatter" : "single_line",
             "stream" : "ext://sys.stdout"
         },
         "node_console": {
