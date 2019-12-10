@@ -2,6 +2,8 @@
 
 from dmdpy.protein.atom import Atom
 
+#TODO have a heavy atom checker class to call a function that fixes
+# have it pipe out to a file first and then have setupjob.py call a protein function to call chimera swapaa function
 
 class Residue:
 

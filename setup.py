@@ -6,5 +6,10 @@ setup(
     author="Matthew Hennefarth",
     packages=find_packages(),
     package_data={'': ['.json', '*.j2', '*.config']},
-    scripts=['dmdpy/bin/setupdmd.py']
+    entry_points={
+        'console_scripts' : [
+            'relabelpdb.py=dmdpy.bin.relabelpdb:main',
+            'setupdmd.py=dmdpy.bin.setupdmd:main'
+        ]
+    },
 )

@@ -2,6 +2,8 @@
 
 
 import logging
+import pkg_resources
+import csv
 
 import dmdpy.utilities.constants as constants
 from dmdpy.protein.chain import Chain
@@ -28,6 +30,7 @@ class Protein:
         self._logger.debug(f"Created protein {str(self)}")
 
     def reformat_protein(self):
+        # This is the BIG BIG BIG function that fixes EVERYTHING of a pdb for DMD
         res_renum = 1
         chain_let = 'A'
 
@@ -145,8 +148,9 @@ class Protein:
                 res_num += 1
 
             self._logger.debug("Adding substrate chain to master chain")
+            self.chains.append(self.sub_chain)
 
-    #TODO: have the protein no relabel itself with DAVIDS script (or I should rewrite it so it fits better in this code
+        self.relabel()
 
     def get_atom(self, identifier):
         for chain in self.chains:
@@ -172,15 +176,96 @@ class Protein:
 
     def write_pdb(self):
         self._logger.debug(f"Writing out pdb: {self}")
-        with open(self.name, 'w') as pdb:
-            for chain in self.chains:
-                for residue in chain.residues:
-                    for atom in residue.atoms:
-                        pdb.write(atom.pdb_line())
-            pdb.write('TER\n')
-            for residue in self.sub_chain.residues:
-                for atom in residue.atoms:
-                    pdb.write(atom.pdb_line())
-                pdb.write('TER\n')
+        try:
+            with open(self.name, 'w') as pdb:
+                for chain in self.chains[:-1]:
+                    for residue in chain.residues:
+                        for atom in residue.atoms:
+                            pdb.write(atom.pdb_line())
+                    pdb.write('TER\n')
 
-            pdb.write('ENDMDL\n')
+                if self.sub_chain is None:
+                    for residue in chain.residues:
+                        for atom in residue.atoms:
+                            pdb.write(atom.pdb_line())
+                    pdb.write('TER\n')
+
+                else:
+                    for residue in self.sub_chain.residues:
+                        for atom in residue.atoms:
+                            pdb.write(atom.pdb_line())
+                        pdb.write('TER\n')
+
+                pdb.write('ENDMDL\n')
+
+        except IOError:
+            self._logger.exception(f"Error writing out to file {self.name}")
+            raise
+
+    def relabel(self, format: str="DMD"):
+
+        atom_label_dict = {}
+        with open(pkg_resources.resource_filename('dmdpy.resources', 'atom_label.csv')) as csvfile:
+            csvreader = csv.reader(csvfile)
+            schemenames = next(csvreader)[1:]
+            try:
+                newid = schemenames.index(format)
+
+            except ValueError:
+                raise ValueError("Format key not found in atom_label.csv")
+
+            for row in csvreader:
+                if row[0] in atom_label_dict:
+                    atom_label_dict[row[0]].append(row[1:])
+
+                else:
+                    atom_label_dict[row[0]] = [row[1:]]
+
+        def rename_residue(residue, terminus: str = None):
+
+            # Checks for any amino acids/molecules not in the csv file first!
+            if residue.name not in atom_label_dict.keys():
+                self._logger.warning(f"Residue: {residue.name}{residue.number} not in atom_label.csv!")
+                return
+
+            #Find the column that has the current naming scheme present
+            for schemeid in range(len(schemenames)):
+                scheme = []
+                for namelist in atom_label_dict[residue.name]:
+                    scheme.append(namelist[schemeid])
+
+                if terminus is not None:
+                    for namelist in atom_label_dict[terminus]:
+                        scheme.append(namelist[schemeid])
+                # Check to see if this is the naming scheme
+                for atom in residue.atoms:
+                    if atom.id not in scheme:
+                        break
+
+                else:
+                    break # This is the correct naming scheme!
+
+            else:
+                raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number}")
+
+            #Loop over all of the atoms
+            for atom in residue.atoms:
+                old_atomid = scheme.index(atom.id)
+                if terminus is not None:
+                    atom.id = (atom_label_dict[residue.name] + atom_label_dict[terminus])[old_atomid][newid]
+
+                else:
+                    atom.id = atom_label_dict[residue.name][old_atomid][newid]
+
+            # TODO add Jacks glycine hydrogen fixed so that naming convention is always the same with Chimera
+
+        for chain in self.chains:
+            index = 0
+            rename_residue(chain.residues[0], "NTERM")
+            rename_residue(chain.residues[-1], "CTERM")
+            cterm = chain.residues[-1]
+
+            for residue in chain.residues[1:-1]:
+                rename_residue(residue)
+
+

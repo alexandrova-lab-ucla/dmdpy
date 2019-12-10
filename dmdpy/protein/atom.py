@@ -32,8 +32,6 @@ class Atom:
         return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.inConstr_number}.{self.id.upper()}"
 
     def pdb_line(self):
-        print(self)
-        print(self.coords)
         return '{:<6}{:>5} {:<4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(
             'ATOM' if self.residue.name in constants.AMINO_ACID_RESIDUES else "HETATM",
             self.number, self.id if len(self.id) > 3 else f" {self.id}", self.residue.name, self.chain.name, self.residue.number,

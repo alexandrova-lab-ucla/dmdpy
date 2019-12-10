@@ -13,7 +13,7 @@ def main():
         utilities.load_logger_config()
 
     except ValueError:
-        print("CRITICAL: Created .turbopy in the root")
+        print("CRITICAL: Created .dmdpy in the root")
         sys.exit(1)
 
     logger = logging.getLogger(__name__)

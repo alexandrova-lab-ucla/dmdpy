@@ -152,8 +152,7 @@ class setupDMDjob:
             with Popen(f"pdmd.linux -i dmd_start_short -s state -p param -c outConstr -m 1",
                     stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
                 while shell.poll() is None:
-                    if shell.stderr is not None and len(shell.stderr.readline().strip()) > 0:
-                        logger.debug(shell.stderr.readline().strip())
+                    logger.debug(shell.stdout.readline().strip())
 
         except OSError:
             logger.exception("Error calling pdmd.linux")
@@ -169,8 +168,7 @@ class setupDMDjob:
             with Popen(f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam movie check.pdb inConstr",
                     stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True, env=os.environ) as shell:
                 while shell.poll() is None:
-                    if shell.stderr is not None and len(shell.stderr.readline().strip()) > 0:
-                        logger.debug(shell.stderr.readline().strip())
+                    logger.debug(shell.stdout.readline().strip())
 
         except OSError:
             logger.exception("Error calling complex_M2P.linux")

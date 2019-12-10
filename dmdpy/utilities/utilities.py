@@ -58,21 +58,24 @@ def load_pdb(file: str):
     resNum = 0
     chainLet = ""
     lineNumber = 1
+    try:
+        with open(file, 'r') as pdb:
+            for line in pdb:
+                if "ATOM" in line or "HETATM" in line:
+                    tmpAtom = atom.Atom(line)
+                    if chainLet != line[21:22]:
+                        chainLet = line[21:22]
+                        chains.append(chain.Chain(chainLet))
 
-    with open(file, 'r') as pdb:
-        for line in pdb:
-            if "ATOM" in line or "HETATM" in line:
-                tmpAtom = atom.Atom(line)
-                if chainLet != line[21:22]:
-                    chainLet = line[21:22]
-                    chains.append(chain.Chain(chainLet))
+                    if resNum != int(line[22:26]):
+                        resNum = int(line[22:26])
+                        chains[-1].add_residue(residue.Residue(line))
 
-                if resNum != int(line[22:26]):
-                    resNum = int(line[22:26])
-                    chains[-1].add_residue(residue.Residue(line))
-
-                chains[-1].residues[-1].add_atom(tmpAtom)
-            lineNumber += 1
+                    chains[-1].residues[-1].add_atom(tmpAtom)
+                lineNumber += 1
+    except IOError:
+        logger.exception(f"Error opening {file}")
+        raise
 
     return protein.Protein(file, chains)
 
