@@ -29,7 +29,7 @@ class Atom:
         self.number = None
 
     def write_inConstr(self):
-        return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.number}.{self.id.upper()}"
+        return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.inConstr_number}.{self.id.upper()}"
 
     def pdb_line(self):
         print(self)

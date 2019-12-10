@@ -16,7 +16,7 @@
     "Restrict Metal Ligands": false,
 
     "Custom protonation states" : [
-        ["Chain", ResNum, "protonated"]
+        ["Chain", ResNum,"protonated"]
     ],
     "Frozen atoms" : {
         "Chains": ["Chain1", "Chain2"],

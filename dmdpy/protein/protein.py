@@ -59,6 +59,7 @@ class Protein:
                     # update residue, and atomic numbering for normal atoms
                     self._logger.debug(f"Renumbering residue: {self.chains[chain_num].residues[residue_num]} to {res_renum} and its atoms starting at {atom_renum}")
                     self.chains[chain_num].residues[residue_num].number = res_renum
+                    self.chains[chain_num].residues[residue_num].inConstr_number = residue_num
                     for atom in self.chains[chain_num].residues[residue_num].atoms:
                         atom.number = atom_renum
                         atom_renum += 1
@@ -80,7 +81,13 @@ class Protein:
         if self.non_residues or self.metals:
             self._logger.debug("Creating a substrate/metal chain")
             atom_num = 1
-            self.sub_chain.name = chr(ord(self.chains[-1].name) + 1)
+
+            # in the event that we have only substrate
+            if not len(self.chains):
+                self.sub_chain.name = 'A'
+
+            else:
+                self.sub_chain.name = chr(ord(self.chains[-1].name) + 1)
 
             # Want to sort the metals!
             self.metals.sort(key=lambda metal: metal.element)
@@ -122,9 +129,15 @@ class Protein:
 
             # Issue with assigning chain to atom
             for residue in self.non_residues:
+                start = 100
+                for atom in residue.atoms:
+                    atom.id = f"{atom.element}{start}"
+                    start += 1
+
                 self._logger.debug(f"Adding residue {residue} to substrate chain")
                 self.sub_chain.add_residue(residue)
                 residue.number = res_num
+                residue.inConstr_number = res_num
                 for atom in residue.atoms:
                     atom.number = atom_num
                     atom_num += 1
@@ -132,6 +145,8 @@ class Protein:
                 res_num += 1
 
             self._logger.debug("Adding substrate chain to master chain")
+
+    #TODO: have the protein no relabel itself with DAVIDS script (or I should rewrite it so it fits better in this code
 
     def get_atom(self, identifier):
         for chain in self.chains:

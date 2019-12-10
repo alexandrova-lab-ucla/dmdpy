@@ -17,3 +17,6 @@ class Chain:
 
     def __str__(self):
         return self.name
+
+    def write_inConstr(self):
+        return f"{ord(self.chain.name) - ord('A') + 1}.*.*"

@@ -18,8 +18,6 @@ os.environ["PATH"] += os.pathsep + "/home/mhennefarth/Programs/dmd/bin"
 
 class setupDMDjob:
 
-    # Have it do a small DMD step after everything is donew
-
     def __init__(self, parameters: dict=None, dir: str="./", pro: protein.Protein=None):
         logger.debug("Entered setupDMDjob")
 
@@ -96,14 +94,23 @@ class setupDMDjob:
             self._protein = pro
 
         # These should be pointers to these objects so that if they change, it is updated in this list automatically
-        # TODO: change this to the way it is in dmdinput.json
-        self._static = []
-        for static_atom in self._raw_parameters["Frozen atoms"]:
-            self._static.append(self._protein.get_atom(static_atom))
+        self._static = {"chains": [], "residues" : [], "atoms" : []}
+        for chains in self._raw_parameters["Frozen atoms"]["Chains"]:
+            for c in self._protein.chains:
+                if c.name == chains:
+                    self._static["chains"].append(c)
+
+        for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
+            self._static["residues"].append(self._protein.get_residue(residue))
+
+        for atom in self._raw_parameters["Frozen atoms"]["Atoms"]:
+            self._static["atoms"].append(self._protein.get_atom(atom))
 
         self._protonation_states = []
         for prot_atom in self._raw_parameters["Custom protonation states"]:
-            self._protonation_states.append([self._protein.get_atom(prot_atom[:2]), prot_atom[3]])
+            self._protonation_states.append([self._protein.get_residue(prot_atom[:2]), prot_atom[3]])
+            # We store the residue here and then we backtrack and figure out the correct atom to protonate later after
+            # proper relabeling/renaming
 
         self._displacement = []
         for atom_pair in self._raw_parameters["Restrict Displacement"]:
@@ -134,19 +141,23 @@ class setupDMDjob:
                 dmdstart.write(f"MOVIE_FILE     {self._raw_parameters['Movie File']}\n")
                 dmdstart.write(f"START_TIME     0\n")
                 dmdstart.write(f"MOVIE_DT       1\n")
-                dmdstart.write(f"MAX_TIME       5\n")
+                dmdstart.write(f"MAX_TIME       1\n")
 
         except IOError:
             logger.exception("Error writing out dmd_start file")
             raise
 
         # Here we do a short run
-        # TODO wrap in some try/except clauses
-        with Popen(
-                f"pdmd.linux -i dmd_start_short -s state -p param -c outConstr -m 1",
-                stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
-            while shell.poll() is None:
-                logger.debug(shell.stdout.readline().strip())
+        try:
+            with Popen(f"pdmd.linux -i dmd_start_short -s state -p param -c outConstr -m 1",
+                    stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
+                while shell.poll() is None:
+                    if shell.stderr is not None and len(shell.stderr.readline().strip()) > 0:
+                        logger.debug(shell.stderr.readline().strip())
+
+        except OSError:
+            logger.exception("Error calling pdmd.linux")
+            raise
 
         if not os.path.isfile("movie"):
             logger.error("movie file was not made, dmd seems to be anrgy at your pdb")
@@ -154,11 +165,16 @@ class setupDMDjob:
 
         logger.debug("Finished the short DMD step successfully")
 
-        with Popen(
-                f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam movie check.pdb inConstr",
-                stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True, env=os.environ) as shell:
-            while shell.poll() is None:
-                logger.debug(shell.stdout.readline().strip())
+        try:
+            with Popen(f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam movie check.pdb inConstr",
+                    stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True, env=os.environ) as shell:
+                while shell.poll() is None:
+                    if shell.stderr is not None and len(shell.stderr.readline().strip()) > 0:
+                        logger.debug(shell.stderr.readline().strip())
+
+        except OSError:
+            logger.exception("Error calling complex_M2P.linux")
+            raise
 
         if not os.path.isfile("check.pdb"):
             logger.error("check.pdb not found, complex_M2P.linux did not run properly")
@@ -197,30 +213,57 @@ class setupDMDjob:
             raise
 
     def make_inConstr(self):
-        # TODO: wrap this is sexy try/except
-        with open('inConstr', 'a') as inConstr_file:
-            with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
-                       stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
-                       env=os.environ) as shell:
-                while shell.poll() is None:
-                    logger.debug(shell.stderr.readline().strip())
+        try:
+            with open('inConstr', 'a') as inConstr_file:
+                try:
+                    with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
+                               stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
+                               env=os.environ) as shell:
+                        while shell.poll() is None:
+                            if len(shell.stderr.readline().strip()) > 0:
+                                logger.debug(shell.stderr.readline().strip())
+                except OSError:
+                    logger.exception("Error calling genESC.linux")
+                    raise
 
-            for static_atom in self._static:
+            if self._raw_parameters["Freeze Non-Residues"]:
+                logger.debug("Freeze Non-residues turned on, freezing residues")
+                for residue in self._protein.sub_chain.residues:
+                    logger.debug(f"Freezing residue: {residue}")
+                    inConstr_file.write(f"Static {residue.write_inConstr()}\n")
+
+            for static_chain in self._static["chains"]:
+                logger.debug(f"Freezing chain: {static_chain}")
+                inConstr_file.write(f"Static {static_chain.write_inConstr()}\n")
+
+            for static_residue in self._static["residues"]:
+                logger.debug(f"Freezing residue: {static_residue}")
+                inConstr_file.write(f"Static {static_residue.write_inConstr()}\n")
+
+            for static_atom in self._static["atoms"]:
                 logger.debug(f"Freezing atom: {static_atom}")
                 inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
 
-            for pro_atom in self._protonation_states:
-                if pro_atom[1].lower() == "protonate":
-                    logger.debug(f"Protonating atom: {pro_atom[0]}")
-                    inConstr_file.write(f"Protonate {pro_atom[0].write_inConstr()}\n")
+            #TODO Fix This for custom protonation states
 
-                elif pro_atom[1].lower() == "deprotonate":
-                    logger.debug(f"Deprotonating atom: {pro_atom[0]}")
-                    inConstr_file.write(f"Deprotonate {pro_atom[0].write_inConstr()}\n")
+            # for pro_atom in self._protonation_states:
+            #     if pro_atom[1].lower() == "protonate":
+            #         logger.debug(f"Protonating atom: {pro_atom[0]}")
+            #         inConstr_file.write(f"Protonate {pro_atom[0].write_inConstr()}\n")
+            #
+            #     elif pro_atom[1].lower() == "deprotonate":
+            #         logger.debug(f"Deprotonating atom: {pro_atom[0]}")
+            #         inConstr_file.write(f"Deprotonate {pro_atom[0].write_inConstr()}\n")
+            #
 
+            # TODO include restrict Metal ligands (find all atoms that are some distance away from the metals)!
             for disp_atom in self._displacement:
                 logger.debug(f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
                 inConstr_file.write(f"AtomPairRel {disp_atom[0].write_inConstr()} {disp_atom[1].write_inConstr()} -{disp_atom[2]} +{disp_atom[2]}\n")
+
+        except IOError:
+            logger.exception("Error opening inConstr file")
+            raise
 
         logger.debug("Finished making the inConstr file!")
 
