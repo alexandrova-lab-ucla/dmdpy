@@ -2,7 +2,11 @@
 
 import logging
 import os
+import shutil
 import json
+import signal
+import subprocess
+from subprocess import Popen, PIPE
 
 import dmdpy.protein.protein as protein
 import dmdpy.utility.utilities as utilities
@@ -27,6 +31,7 @@ class calculation:
         self._time_to_run = time
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
+        self._commands = commands
         os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
 
         # Want to make sure that we make the scratch directory!!
@@ -68,31 +73,101 @@ class calculation:
 
         # TODO check for valid parameters passed
 
-        if not os.path.isfile("initial.pdb"):
-            logger.info("initial.pdb not found, will try setting up from scratch")
-            sj = setupDMDjob(parameters=self._raw_parameters)
-
-        #We have an initial.pdb, now we have to check the jobs and update the parameters and then create the files and continue
-
-        if commands is None:
-            self.run_dmd(parameters)
+        # TODO check for any exceptions raised from setupDMDjob
+        if pro is None:
+            if not os.path.isfile("initial.pdb"):
+                logger.info("initial.pdb not found, will try setting up from scratch")
+                sj = setupDMDjob(parameters=self._raw_parameters)
 
         else:
-            if commands["continue"]:
-                if os.path.isfile(self._raw_parameters["Restart File"]):
-                    # We continue from we last left off and then continue forward with the commands
-                    pass
-
-                #else:
+            logger.debug("Will setup the protein for DMD")
+            sj = setupDMDjob(parameters=self._raw_parameters, pro=pro)
 
 
-    def run_dmd(self, parameters):
+        # TODO move to the scratch directory
+
+        # TODO Arm the timer
+
+        # We loop over the steps here and will pop elements off the beginning of the dictionary
+        while len(self._commands.values()) != 0:
+            if self._timer_went_off:
+                break
+
+            # Grab the next step dictionary to do
+            steps = self._commands[self._commands.values(0)]
+            updated_parameters = self._raw_parameters
+
+            for changes in steps.keys():
+                if changes == "continue":
+                    continue
+
+                updated_parameters[changes] = steps[changes]
+
+            if not steps["continue"]:
+                # We need to reset up the job, first convert the movie to a pdb and then remake everything
+                try:
+                    with Popen(
+                            f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam {self._raw_parameters['Movie File']} initial.pdb inConstr",
+                            stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
+                            env=os.environ) as shell:
+                        while shell.poll() is None:
+                            logger.debug(shell.stdout.readline().strip())
+                except OSError:
+                    logger.exception("Error calling complex_M2P.linux")
+                    raise
+
+                # Now we resetup intermediate.pdb to initial.pdb
+                self.run_dmd(updated_parameters, False)
+
+            else:
+                # We can just run the job with no issues other than those raised from the above
+                self.run_dmd(updated_parameters, True)
+
+
+            # Assuming we finished correctly, we pop off the last issue
+            self._commands.pop(self._commands.values(0))
+
+        # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
+
+    def run_dmd(self, parameters, skip: bool):
         # This will create the state file and the other files!
-        utilities.make_state_file(parameters, "initial.pdb")
-        utilities.make_start_file(parameters)
+        if not skip:
+            utilities.make_state_file(parameters, "initial.pdb")
+            utilities.make_start_file(parameters)
 
         #Now we execute the command to run the dmd
+        try:
+            with Popen(f"pdmd.linux -i dmd_start -s state -p param -c outConstr -m {self._cores}",
+                    stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
+                while shell.poll() is None:
+                    logger.debug(shell.stdout.readline().strip())
 
+        except OSError:
+            logger.exception("Error calling pdmd.linux")
+            raise
 
-        
+    def calculation_alarm_handler(self, signum, frame):
+        """
+        Called if time is almost up in the dmd job! Will copy all files to a backup directory and write out the
+        remaining commands to perform in the remaining_commands.json file.
+        """
+        logger.warning("Creating a backup directory!")
+        self._timer_went_off = True
 
+        logger.info("Placing the remaining commands into remaining_commands.json")
+        with open("remaining_commands.json") as rc:
+            json.dump(self._commands, rc)
+
+        logger.debug("Checking if scratch directory is different from submit directory")
+        if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
+            logger.warning("Creating dmd_backup in the submit directory")
+            backup_dir = os.path.join(os.path.abspath(self._submit_directory), 'dmd_backup')
+            if os.path.isdir(backup_dir):
+                logger.warning("Removing backup directory already present in the submit directory")
+                shutil.rmtree(backup_dir)
+
+            logger.warning(f"Copying files from {os.path.abspath(self._scratch_directory)} to {backup_dir}")
+            shutil.copytree(self._scratch_directory, backup_dir)
+
+        logger.info("Turning off alarm")
+        signal.alarm(0)

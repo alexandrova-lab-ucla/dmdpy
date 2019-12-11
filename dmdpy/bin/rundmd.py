@@ -4,6 +4,8 @@ import logging
 
 def main():
 
+    # TODO Check for a commands file and pass it into the calculation.py
+
     print("Hey")
 
 

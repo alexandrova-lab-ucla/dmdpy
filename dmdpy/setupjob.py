@@ -222,7 +222,7 @@ class setupDMDjob:
 
     def make_inConstr(self):
         try:
-            with open('inConstr', 'a') as inConstr_file:
+            with open('inConstr', 'w') as inConstr_file:
                 try:
                     with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
                                stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
