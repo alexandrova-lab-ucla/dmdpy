@@ -9,7 +9,8 @@ setup(
     entry_points={
         'console_scripts' : [
             'relabelpdb.py=dmdpy.bin.relabelpdb:main',
-            'setupdmd.py=dmdpy.bin.setupdmd:main'
+            'setupdmd.py=dmdpy.bin.setupdmd:main',
+            'rundmd.py=dmdpy.bin.rundmd:main'
         ]
     },
 )

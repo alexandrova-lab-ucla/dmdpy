@@ -20,7 +20,7 @@ __all__ = [
 
 class calculation:
 
-    def __init__(self, cores, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None, commands: dict=None):
+    def __init__(self, cores, commands: dict, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
         logger.info("Beginning DMD calculation")
 
         logger.debug("Initializing variables")
@@ -91,21 +91,25 @@ class calculation:
         # We loop over the steps here and will pop elements off the beginning of the dictionary
         while len(self._commands.values()) != 0:
             if self._timer_went_off:
+                logger.info("Timer went off, not continuing onto next command")
                 break
 
             # Grab the next step dictionary to do
-            steps = self._commands[self._commands.values(0)]
+            steps = self._commands[list(self._commands.keys())[0]]
+            logger.info(f"On step: {steps}")
             updated_parameters = self._raw_parameters
 
-            for changes in steps.keys():
+            for changes in steps:
                 if changes == "continue":
                     continue
 
+                logger.debug(f"Updating {changes}: changing {updated_parameters[changes]} to {steps[changes]}")
                 updated_parameters[changes] = steps[changes]
 
             if not steps["continue"]:
                 # We need to reset up the job, first convert the movie to a pdb and then remake everything
                 try:
+                    logger.debug("Creating movie file")
                     with Popen(
                             f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam {self._raw_parameters['Movie File']} initial.pdb inConstr",
                             stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
@@ -125,22 +129,27 @@ class calculation:
 
 
             # Assuming we finished correctly, we pop off the last issue
-            self._commands.pop(self._commands.values(0))
+            self._commands.pop(list(self._commands.keys())[0])
 
         # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
 
     def run_dmd(self, parameters, skip: bool):
+        utilities.make_start_file(parameters)
+
         # This will create the state file and the other files!
+        state_file = self._raw_parameters["Restart File"] if os.path.isfile(self._raw_parameters["Restart File"]) else "state"
         if not skip:
+            logger.info("Remaking the state and start file prior to running dmd on this step.")
             utilities.make_state_file(parameters, "initial.pdb")
-            utilities.make_start_file(parameters)
+            state_file = "state"
 
         #Now we execute the command to run the dmd
         try:
-            with Popen(f"pdmd.linux -i dmd_start -s state -p param -c outConstr -m {self._cores}",
+            logger.info(f"Issuing command: pdmd.linux -i dmd_start -s {state_file} -p param -c outConstr -m {self._cores} -fa")
+            with Popen(f"pdmd.linux -i dmd_start -s {state_file} -p param -c outConstr -m {self._cores} -fa",
                     stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
                 while shell.poll() is None:
-                    logger.debug(shell.stdout.readline().strip())
+                    logger.info(shell.stdout.readline().strip())
 
         except OSError:
             logger.exception("Error calling pdmd.linux")
