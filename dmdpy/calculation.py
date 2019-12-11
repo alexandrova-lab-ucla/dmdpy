@@ -5,13 +5,18 @@ import os
 import json
 
 import dmdpy.protein.protein as protein
-import dmdpy.utilities.utilities as utilities
+import dmdpy.utility.utilities as utilities
+from dmdpy.setupjob import setupDMDjob
 
 logger=logging.getLogger(__name__)
 
+__all__ = [
+    'calculation'
+]
+
 class calculation:
 
-    def __init__(self, cores, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
+    def __init__(self, cores, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None, commands: dict=None):
         logger.info("Beginning DMD calculation")
 
         logger.debug("Initializing variables")
@@ -21,6 +26,8 @@ class calculation:
         self._cores = cores
         self._time_to_run = time
         self._timer_went_off = False
+        self._dmd_config = utilities.load_dmd_config()
+        os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
 
         # Want to make sure that we make the scratch directory!!
         try:
@@ -35,7 +42,6 @@ class calculation:
             self._scratch_directory = './'
 
         logger.debug("Setting up DMD Environment")
-        #TODO make a utilities function that adds the appropriate paths to PATH/os.environ
 
         if parameters is None:
             logger.debug("Checking for a dmdinput.json file")
@@ -60,9 +66,33 @@ class calculation:
             logger.debug("Using parameters passed")
             self._raw_parameters = parameters
 
-        # TODO check for a state file, param file, outConstr, and dmd_start file and or a restart file
-        # Compare this to the start time (needs to be > 0 if using restart file)
+        # TODO check for valid parameters passed
 
-        #Check to see if we have valid parameters before continuing!
+        if not os.path.isfile("initial.pdb"):
+            logger.info("initial.pdb not found, will try setting up from scratch")
+            sj = setupDMDjob(parameters=self._raw_parameters)
+
+        #We have an initial.pdb, now we have to check the jobs and update the parameters and then create the files and continue
+
+        if commands is None:
+            self.run_dmd(parameters)
+
+        else:
+            if commands["continue"]:
+                if os.path.isfile(self._raw_parameters["Restart File"]):
+                    # We continue from we last left off and then continue forward with the commands
+                    pass
+
+                #else:
+
+
+    def run_dmd(self, parameters):
+        # This will create the state file and the other files!
+        utilities.make_state_file(parameters, "initial.pdb")
+        utilities.make_start_file(parameters)
+
+        #Now we execute the command to run the dmd
+
+
         
 

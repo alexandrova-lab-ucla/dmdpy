@@ -6,7 +6,7 @@ import sys
 import os
 
 
-from dmdpy.utilities import utilities
+from dmdpy.utility import utilities
 
 
 def main():
@@ -17,20 +17,20 @@ def main():
     logger.debug("Parsing Arguments")
 
     parser = argparse.ArgumentParser(description="Relabels a pdb to a new atom labeling scheme")
-    parser.add_argument("pdbfile", dest = "pdbfile", type=str, nargs=1, required=True, help="PDB file to edit")
-    parser.add_argument("scheme", dest="scheme", type=str, nargs=1, required=True, help="Scheme to convert to")
+    parser.add_argument("pdbfile", type=str, nargs=1, help="PDB file to edit")
+    parser.add_argument("scheme", type=str, nargs=1, help="Scheme to convert to")
     parser.add_argument("-o", dest="outputFile", default="", type=str, nargs=1, required=False, help="PDB file to write to")
 
     args = parser.parse_args()
 
-    if not os.path.isfile(args.pdbfile):
-        logger.error(f"Could not find pdb: {args.pdbfile}")
+    if not os.path.isfile(args.pdbfile[0]):
+        logger.error(f"Could not find pdb: {args.pdbfile[0]}")
         sys.exit(1)
 
     logger.debug("Proper Arguments Passed")
 
     try:
-        protein = utilities.load_pdb(args.pdbfile)
+        protein = utilities.load_pdb(args.pdbfile[0])
 
     except IOError:
         logger.error("Error in loading in the PDB file provided")
@@ -38,15 +38,15 @@ def main():
 
     logger.debug("Relabeling")
     try:
-        protein.relabel(args.scheme)
+        protein.relabel(args.scheme[0])
 
     except ValueError:
         logger.error("Error in relabeling the protein")
         sys.exit(1)
 
     if args.outputFile != "":
-        logger.debug(f"Changing protein name to {args.outputFile}")
-        protein.name = args.outputFile
+        logger.debug(f"Changing protein name to {args.outputFile[0]}")
+        protein.name = args.outputFile[0]
 
     try:
         protein.write_pdb()

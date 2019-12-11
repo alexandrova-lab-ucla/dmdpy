@@ -2,31 +2,36 @@
 
 import numpy as np
 
-import dmdpy.utilities.constants as constants
+from dmdpy.utility import constants
 
+__all__=[
+    'Atom'
+]
 
 class Atom:
 
     __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'number']
 
-    def __init__(self, line: str = None, element: str = None, coords: np.array = None, id=None):
+    def __init__(self, line: str = None, element: str = None, coords: np.array = None, id=None, number=None):
 
         if line is None:
             self.element = element
             self.coords = coords
             self.id = id
+            self.number = number
 
         elif line is not None:
             self.element = line[76:78].strip().lower()
             self.coords = np.array([float(line[30:38]), float(line[38:46]), float(line[46:54])])
             self.id = line[12:16].strip().upper()
+            self.number = int(line[6:11])
 
         if self.element.lower() == 'eh':
             self.element = 'h'
 
         self.residue = None
         self.chain = None
-        self.number = None
+
 
     def write_inConstr(self):
         return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.inConstr_number}.{self.id.upper()}"

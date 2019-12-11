@@ -9,12 +9,15 @@ import subprocess
 from subprocess import Popen, PIPE
 
 
-import dmdpy.utilities.utilities as utilities
+import dmdpy.utility.utilities as utilities
 import dmdpy.protein.protein as protein
 
 logger = logging.getLogger(__name__)
 
-os.environ["PATH"] += os.pathsep + "/home/mhennefarth/Programs/dmd/bin"
+__all__=[
+    'setupDMDjob'
+]
+
 
 class setupDMDjob:
 
@@ -28,6 +31,7 @@ class setupDMDjob:
         self._initial_directory = os.getcwd()
         logger.debug(f"Set initial directory to: {self._initial_directory}")
         self._dmd_config = utilities.load_dmd_config()
+        os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
         self._protein = None
 
         try:
@@ -123,9 +127,15 @@ class setupDMDjob:
 
         self.make_topparam()
         self.make_inConstr()
-        self.make_state_file()
+        utilities.make_state_file(self._raw_parameters, self._protein.name)
         self.short_dmd()
-        self.make_start_file()
+        utilities.make_start_file(self._raw_parameters)
+
+        logger.info("#####################")
+        logger.info("##                 ##")
+        logger.info("##    SUCCESS!!    ##")
+        logger.info("##                 ##")
+        logger.info("#####################")
 
     def short_dmd(self):
         try:
@@ -265,94 +275,3 @@ class setupDMDjob:
 
         logger.debug("Finished making the inConstr file!")
 
-    def make_start_file(self):
-        try:
-            with open("dmd_start", 'w') as dmdstart:
-                dmdstart.write(f"THERMOSTAT     {self._raw_parameters['Thermostat']}\n")
-                dmdstart.write(f"T_NEW          {self._raw_parameters['Initial Temperature']}\n")
-                dmdstart.write(f"T_LIMIT        {self._raw_parameters['Final Temperature']}\n")
-                dmdstart.write(f"HEAT_X_C       {self._raw_parameters['HEAT_X_C']}\n")
-                dmdstart.write(f"RESTART_FILE   {self._raw_parameters['Restart File']}\n")
-                dmdstart.write(f"RESTART_DT     {self._raw_parameters['Restart dt']}\n")
-                dmdstart.write(f"ECHO_FILE      {self._raw_parameters['Echo File']}\n")
-                dmdstart.write(f"ECHO_DT        {self._raw_parameters['Echo dt']}\n")
-                dmdstart.write(f"MOVIE_FILE     {self._raw_parameters['Movie File']}\n")
-                dmdstart.write(f"START_TIME     {self._raw_parameters['Start time']}\n")
-                dmdstart.write(f"MOVIE_DT       {self._raw_parameters['Movie dt']}\n")
-                dmdstart.write(f"MAX_TIME       {self._raw_parameters['Max time']}\n")
-
-        except IOError:
-            logger.exception("Error writing out dmd_start file")
-            raise
-
-        logger.debug("made the start file!")
-
-    def make_state_file(self):
-        logger.debug("Calling complex.linux")
-        try:
-            # TODO: There is an issue here with complex.linux not actually running
-            # It is coming from the mol2 of the substrate...interesting...
-            # There is a Segmentation fault (core dumped) error that occurs, asking Jack if he knows what the issue is
-            # Jack thinks it is the segfault mike wrote in his HACK ALERT section
-            # I have emailed the Dohkyan group regarding it...its only for certain pdbs...
-            with Popen(f"complex-1.linux -P {self._dmd_config['PATHS']['parameters']} -I {self._protein.name} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
-                       stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
-                while shell.poll() is None:
-                    logger.debug(shell.stdout.readline().strip())
-
-            attempts = 3
-            if not os.path.isfile("state"):
-                logger.warning("Could not make state file first time around, could be a segfault error")
-                logger.warning("Going to reorder the bond list in the mol2 files!")
-                attempts = 1
-
-            while not os.path.isfile("state") and attempts < 3:
-                logger.warning(f"complex fix attempt {attempts}")
-                mol2_files = []
-                with open("topparam") as topparm:
-                    for line in topparm:
-                        mol2_files.append(line.split()[2])
-
-                for mol2 in mol2_files:
-                    with open(mol2, 'r') as mf:
-                        bonds = []
-                        save = []
-                        bond_section = False
-                        for line in mf:
-                            if not bond_section and "BOND" in line:
-                                save.append(line)
-                                bond_section = True
-                                continue
-
-                            if bond_section:
-                                bonds.append(line.split())
-
-                            else:
-                                save.append(line)
-
-                        #now we reorder based upon the attempt!
-                        bonds.sort(key=lambda x: int(x[attempts]))
-
-                    with open(mol2, 'w+') as mf:
-                        for line in save:
-                            mf.write(line)
-
-                        for bond in bonds:
-                            mf.write(f"{bond[0]}\t{bond[1]}\t{bond[2]}\t{bond[3]}\n")
-
-                    with Popen(f"complex-1.linux -P {self._dmd_config['PATHS']['parameters']} -I {self._protein.name} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
-                            stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
-                        while shell.poll() is None:
-                            logger.debug(shell.stdout.readline().strip())
-
-                attempts += 1
-
-            if not os.path.isfile("state"):
-                logger.critical("could not create state file, something is very wrong!")
-                raise ValueError("state file")
-
-        except OSError:
-            logger.exception("Error calling complex-1.linux!")
-            raise
-
-        logger.debug("Made the state file!")

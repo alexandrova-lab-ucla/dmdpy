@@ -4,8 +4,9 @@ import logging
 import sys
 
 
-import dmdpy.utilities.utilities as utilities
+import dmdpy.utility.utilities as utilities
 from dmdpy.setupjob import setupDMDjob
+
 
 def main():
 
@@ -23,7 +24,7 @@ def main():
 
     except:
         logger.critical("Exception encountered, quiting")
-        raise
+        sys.exit(1)
 
 
 if __name__ == "__main__":

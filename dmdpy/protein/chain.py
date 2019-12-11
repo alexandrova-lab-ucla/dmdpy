@@ -2,6 +2,9 @@
 
 from dmdpy.protein.residue import Residue
 
+__all__=[
+    'Chain'
+]
 
 class Chain:
 

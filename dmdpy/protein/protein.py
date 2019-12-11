@@ -5,10 +5,13 @@ import logging
 import pkg_resources
 import csv
 
-import dmdpy.utilities.constants as constants
+from dmdpy.utility import constants
 from dmdpy.protein.chain import Chain
 from dmdpy.protein.residue import Residue
 
+__all__=[
+    'Protein'
+]
 
 class Protein:
 
@@ -184,8 +187,8 @@ class Protein:
                             pdb.write(atom.pdb_line())
                     pdb.write('TER\n')
 
-                if self.sub_chain is None:
-                    for residue in chain.residues:
+                if not self.sub_chain.residues:
+                    for residue in self.chains[-1].residues:
                         for atom in residue.atoms:
                             pdb.write(atom.pdb_line())
                     pdb.write('TER\n')
