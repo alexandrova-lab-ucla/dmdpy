@@ -20,7 +20,7 @@ __all__ = [
 
 class calculation:
 
-    def __init__(self, cores: int = 1, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None, commands: dict=None):
+    def __init__(self, cores: int = 1, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
         logger.info("Beginning DMD calculation")
 
         logger.debug("Initializing variables")
@@ -31,7 +31,6 @@ class calculation:
         self._time_to_run = time
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
-        self._commands = commands
         self._start_time = 0
         os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
 
@@ -84,7 +83,7 @@ class calculation:
             logger.debug("Will setup the protein for DMD")
             sj = setupDMDjob(parameters=self._raw_parameters, pro=pro)
 
-        if self._commands is None and os.path.isfile(self._raw_parameters["Echo File"]):
+        if os.path.isfile(self._raw_parameters["Echo File"]):
             with open(self._raw_parameters["Echo File"]) as echofile:
                 lines = []
                 for line in echofile:
@@ -94,14 +93,11 @@ class calculation:
                 self._start_time = int(float(last_line[0]))
                 logger.debug(f"Last recorded time: {self._start_time}")
 
-        if os.path.isfile("remaining_commands.json"):
-            logger.debug("There is a remaining_commands.json file, will use those")
-            with open("remaining_commands.json") as rem:
-                self._commands = json.load(rem)
+        if self._raw_parameters["Remaining Commands"]:
+            self._commands = self._raw_parameters["Remaining Commands"].copy()
 
-            if commands is None and os.path.isfile("commands.json"):
-                with open("commands.json") as all:
-                    all_commands = json.load(all)
+            if self._raw_parameters["Commands"]:
+                all_commands = self._raw_parameters["Commands"].copy()
 
                 remove = len(self._commands)
                 for i in range(remove):
@@ -134,23 +130,16 @@ class calculation:
                 self._commands[list(self._commands.keys())[0]]["Time"] = new_time
 
             else:
-                logger.error("Unknown how many steps prior to this one!")
-                logger.error("Will just start continue from where we left off then")
+                logger.warning("Unknown how many steps prior to this one!")
+                logger.warning("Will just start continue from where we left off then")
 
-        elif self._commands is None:
+        elif self._raw_parameters["Commands"]:
             # There are no remaining commands, so continue like normal more or less
-            logger.debug("Using the commands.json file to continue")
-            if os.path.isfile("commands.json"):
-                with open("commands.json") as command_file:
-                    self._commands = json.load(command_file)
-
-            else:
-                logger.error("There are no commands! Will just do what is specified in the dmdinput.json only")
-                self._commands = { "1" : {}}
+            self._commands = self._raw_parameters["Commands"].copy()
 
         else:
+            self._commands = {"1": {}}
             logger.info("Commands passed, using those")
-
 
         # TODO move to the scratch directory
 

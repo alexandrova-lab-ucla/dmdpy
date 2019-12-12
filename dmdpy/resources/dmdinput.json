@@ -30,5 +30,9 @@
     },
     "Restrict Displacement" : [
         [["Chain", ResNum, "ID"], ["Chain", ResNum, "ID"], 0.2]
-    ]
+    ],
+    "Commands": {
+    },
+    "Remaining Commands": {
+    }
 }
