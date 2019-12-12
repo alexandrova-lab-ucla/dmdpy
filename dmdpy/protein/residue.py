@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from dmdpy.protein.atom import Atom
+from dmdpy.utility import constants
 
 #TODO have a heavy atom checker class to call a function that fixes
 # have it pipe out to a file first and then have setupjob.py call a protein function to call chimera swapaa function
@@ -32,7 +33,11 @@ class Residue:
         self.atoms.append(atom)
 
     def write_inConstr(self):
-        return f"{ord(self.chain.name) - ord('A') + 1}.{self.inConstr_number}.*"
+        if self.name in constants.AMINO_ACID_RESIDUES:
+            return f"{ord(self.chain.name) - ord('A') + 1}.{self.inConstr_number}.*"
+
+        else:
+            return f"{ord(self.chain.name)- ord('A') + self.inConstr_number}.1.*"
 
     def __str__(self):
         return f"{self.name} {self.number}"

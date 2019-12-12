@@ -2,6 +2,8 @@
 
 import logging
 import sys
+import os
+import json
 
 
 from dmdpy.utility import utilities
@@ -18,15 +20,13 @@ def main():
 
     logger = logging.getLogger(__name__)
 
-    commands = {
-        "1" : {
-            "continue": True,
-            "Start time": 0,
-            "Max time": 50,
-        }
-    }
+    # commands = {
+    #     "1" : {
+    #         "Time" : 50
+    #     }
+    # }
 
-    c = dmdpy.calculation(8, commands)
+    c = dmdpy.calculation(cores=8)
 
 
 if __name__ == "__main__":

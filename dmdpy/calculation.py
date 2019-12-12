@@ -20,7 +20,7 @@ __all__ = [
 
 class calculation:
 
-    def __init__(self, cores, commands: dict, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
+    def __init__(self, cores: int = 1, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None, commands: dict=None):
         logger.info("Beginning DMD calculation")
 
         logger.debug("Initializing variables")
@@ -32,6 +32,7 @@ class calculation:
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
         self._commands = commands
+        self._start_time = 0
         os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
 
         # Want to make sure that we make the scratch directory!!
@@ -83,10 +84,81 @@ class calculation:
             logger.debug("Will setup the protein for DMD")
             sj = setupDMDjob(parameters=self._raw_parameters, pro=pro)
 
+        if self._commands is None and os.path.isfile(self._raw_parameters["Echo File"]):
+            with open(self._raw_parameters["Echo File"]) as echofile:
+                lines = []
+                for line in echofile:
+                    lines.append(line)
+
+                last_line = lines[-1].split()
+                self._start_time = int(float(last_line[0]))
+                logger.debug(f"Last recorded time: {self._start_time}")
+
+        if os.path.isfile("remaining_commands.json"):
+            logger.debug("There is a remaining_commands.json file, will use those")
+            with open("remaining_commands.json") as rem:
+                self._commands = json.load(rem)
+
+            if commands is None and os.path.isfile("commands.json"):
+                with open("commands.json") as all:
+                    all_commands = json.load(all)
+
+                remove = len(self._commands)
+                for i in range(remove):
+                    all_commands.pop(list(self._commands.keys())[-1])
+
+                time_elapsed = 0
+                for step in all_commands:
+                    if "Time" in all_commands[step].keys():
+                        time_elapsed += all_commands[step]["Time"]
+
+                    else:
+                        time_elapsed += self._raw_parameters["Time"]
+
+                logger.debug(f"Total time completed: {time_elapsed}")
+
+                diff = self._start_time - time_elapsed
+                logger.debug(f"We are off by: {diff}")
+
+                if "Time" in self._commands[list(self._commands.keys())[0]].keys():
+                    new_time = self._commands[list(self._commands.keys())[0]]["Time"] - diff
+
+                else:
+                    new_time = self._raw_parameters["Time"] - diff
+
+                if new_time < 0:
+                    logger.error("Somehow we moved onto a later step then what is reported in remaining calculations.")
+                    raise ValueError("Invalid time")
+
+                logger.debug(f"Setting new time for the first step to: {new_time}")
+                self._commands[list(self._commands.keys())[0]]["Time"] = new_time
+
+            else:
+                logger.error("Unknown how many steps prior to this one!")
+                logger.error("Will just start continue from where we left off then")
+
+        elif self._commands is None:
+            # There are no remaining commands, so continue like normal more or less
+            logger.debug("Using the commands.json file to continue")
+            if os.path.isfile("commands.json"):
+                with open("commands.json") as command_file:
+                    self._commands = json.load(command_file)
+
+            else:
+                logger.error("There are no commands! Will just do what is specified in the dmdinput.json only")
+                self._commands = { "1" : {}}
+
+        else:
+            logger.info("Commands passed, using those")
+
 
         # TODO move to the scratch directory
 
-        # TODO Arm the timer
+        # We can arm the timer
+        if self._time_to_run != -1:
+            logger.info("Starting the timer")
+            signal.signal(signal.SIGALRM, self.calculation_alarm_handler)
+            signal.alarm((self._time_to_run * 60 - 30) * 60)
 
         # We loop over the steps here and will pop elements off the beginning of the dictionary
         while len(self._commands.values()) != 0:
@@ -97,63 +169,69 @@ class calculation:
             # Grab the next step dictionary to do
             steps = self._commands[list(self._commands.keys())[0]]
             logger.info(f"On step: {steps}")
-            updated_parameters = self._raw_parameters
+            updated_parameters = self._raw_parameters.copy()
 
             for changes in steps:
-                if changes == "continue":
-                    continue
-
                 logger.debug(f"Updating {changes}: changing {updated_parameters[changes]} to {steps[changes]}")
                 updated_parameters[changes] = steps[changes]
 
-            if not steps["continue"]:
-                # We need to reset up the job, first convert the movie to a pdb and then remake everything
-                try:
-                    logger.debug("Creating movie file")
-                    with Popen(
-                            f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam {self._raw_parameters['Movie File']} initial.pdb inConstr",
-                            stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
-                            env=os.environ) as shell:
-                        while shell.poll() is None:
-                            logger.debug(shell.stdout.readline().strip())
-                except OSError:
-                    logger.exception("Error calling complex_M2P.linux")
-                    raise
+            if updated_parameters["titr"]["titr on"]:
+                logger.critical("Not implemented yet, dingus")
+                pass
 
-                # Now we resetup intermediate.pdb to initial.pdb
-                self.run_dmd(updated_parameters, False)
+            elif "Custom protonation states" in steps.keys():
+                logger.critical("Not implemented yet, dingus")
+                pass
+
+            elif "Frozen atoms" in steps.keys() or "Restrict Displacement" in steps.keys():
+                #TODO implement
+                #make new inConstr file, run complex-linux.1, and then use the restart file
+                logger.critical("Not implemented yet, dingus")
+
+                #self.run_dmd(updated_parameters, self._start_time, True)
 
             else:
                 # We can just run the job with no issues other than those raised from the above
-                self.run_dmd(updated_parameters, True)
+                self.run_dmd(updated_parameters, self._start_time, True)
 
 
             # Assuming we finished correctly, we pop off the last issue
             self._commands.pop(list(self._commands.keys())[0])
+            # Update the new start time!
+            self._start_time += updated_parameters["Time"]
 
+        #TODO
         # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
 
-    def run_dmd(self, parameters, skip: bool):
-        utilities.make_start_file(parameters)
+        #TODO change back to initial directory if necessary
 
-        # This will create the state file and the other files!
-        state_file = self._raw_parameters["Restart File"] if os.path.isfile(self._raw_parameters["Restart File"]) else "state"
-        if not skip:
-            logger.info("Remaking the state and start file prior to running dmd on this step.")
-            utilities.make_state_file(parameters, "initial.pdb")
+    def run_dmd(self, parameters, start_time: int, use_restart: bool):
+        # Remake the start file with any changed parameters
+        utilities.make_start_file(parameters, start_time)
+
+        if use_restart:
+            state_file = self._raw_parameters["Restart File"] if os.path.isfile(self._raw_parameters["Restart File"]) else "state"
+
+        else:
             state_file = "state"
 
         #Now we execute the command to run the dmd
         try:
             logger.info(f"Issuing command: pdmd.linux -i dmd_start -s {state_file} -p param -c outConstr -m {self._cores} -fa")
+            logger.info("*****************************************************************************************************")
             with Popen(f"pdmd.linux -i dmd_start -s {state_file} -p param -c outConstr -m {self._cores} -fa",
                     stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
                 while shell.poll() is None:
                     logger.info(shell.stdout.readline().strip())
-
+            logger.info("*****************************************************************************************************")
         except OSError:
             logger.exception("Error calling pdmd.linux")
             raise
+
+    def last_frame(self):
+        #TODO implement
+        """Returns a protein of the last from from the movie file"""
+        pass
 
     def calculation_alarm_handler(self, signum, frame):
         """
@@ -164,7 +242,7 @@ class calculation:
         self._timer_went_off = True
 
         logger.info("Placing the remaining commands into remaining_commands.json")
-        with open("remaining_commands.json") as rc:
+        with open("remaining_commands.json", 'w') as rc:
             json.dump(self._commands, rc)
 
         logger.debug("Checking if scratch directory is different from submit directory")

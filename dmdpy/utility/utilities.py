@@ -19,7 +19,8 @@ __all__=[
     'make_mol2',
     'create_config',
     'make_start_file',
-    'make_state_file'
+    'make_state_file',
+    'make_movie'
 ]
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,8 @@ def create_config():
 
     logger.info(f"Please ensure that {os.path.join(home, '.dmdpy')} has the correct values")
 
-def make_start_file(parameters: dict):
+def make_start_file(parameters: dict, start_time: int =0):
+    logger.debug("Making the Start File")
     try:
         with open("dmd_start", 'w') as dmdstart:
             dmdstart.write(f"THERMOSTAT     {parameters['Thermostat']}\n")
@@ -225,13 +227,13 @@ def make_start_file(parameters: dict):
             dmdstart.write(f"T_LIMIT        {parameters['Final Temperature']}\n")
             dmdstart.write(f"HEAT_X_C       {parameters['HEAT_X_C']}\n")
             dmdstart.write(f"RESTART_FILE   {parameters['Restart File']}\n")
-            dmdstart.write(f"RESTART_DT     {parameters['Restart dt']}\n")
+            dmdstart.write(f"RESTART_DT     {parameters['dt']}\n")
             dmdstart.write(f"ECHO_FILE      {parameters['Echo File']}\n")
-            dmdstart.write(f"ECHO_DT        {parameters['Echo dt']}\n")
+            dmdstart.write(f"ECHO_DT        {parameters['dt']}\n")
             dmdstart.write(f"MOVIE_FILE     {parameters['Movie File']}\n")
-            dmdstart.write(f"START_TIME     {parameters['Start time']}\n")
-            dmdstart.write(f"MOVIE_DT       {parameters['Movie dt']}\n")
-            dmdstart.write(f"MAX_TIME       {parameters['Max time']}\n")
+            dmdstart.write(f"START_TIME     {start_time}\n")
+            dmdstart.write(f"MOVIE_DT       {parameters['dt']}\n")
+            dmdstart.write(f"MAX_TIME       {parameters['Time'] + start_time}\n")
 
     except IOError:
         logger.exception("Error writing out dmd_start file")
@@ -311,3 +313,23 @@ def make_state_file(parameters: dict, pdbName):
         raise
 
     logger.debug("Made the state file!")
+
+def make_movie(initial_pdb, movie_file, output_pdb):
+    """
+
+    :param initial_pdb: name of the initial pdb for the dmd run
+    :param movie_file: name of the movie file created from dmd
+    :param output_pdb: name of the output pdb that is generated from the movie file
+    :return:
+    """
+    try:
+        logger.debug("Creating movie file")
+        with Popen(
+                f"complex_M2P.linux {dmd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
+                stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
+                env=os.environ) as shell:
+            while shell.poll() is None:
+                logger.debug(shell.stdout.readline().strip())
+    except OSError:
+        logger.exception("Error calling complex_M2P.linux")
+        raise

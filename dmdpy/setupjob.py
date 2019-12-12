@@ -174,15 +174,7 @@ class setupDMDjob:
 
         logger.debug("Finished the short DMD step successfully")
 
-        try:
-            with Popen(f"complex_M2P.linux {self._dmd_config['PATHS']['parameters']} initial.pdb topparam movie check.pdb inConstr",
-                    stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True, env=os.environ) as shell:
-                while shell.poll() is None:
-                    logger.debug(shell.stdout.readline().strip())
-
-        except OSError:
-            logger.exception("Error calling complex_M2P.linux")
-            raise
+        utilities.make_movie("initial.pdb", "movie", "check.pdb")
 
         if not os.path.isfile("check.pdb"):
             logger.error("check.pdb not found, complex_M2P.linux did not run properly")
@@ -234,40 +226,40 @@ class setupDMDjob:
                     logger.exception("Error calling genESC.linux")
                     raise
 
-            if self._raw_parameters["Freeze Non-Residues"]:
-                logger.debug("Freeze Non-residues turned on, freezing residues")
-                for residue in self._protein.sub_chain.residues:
-                    logger.debug(f"Freezing residue: {residue}")
-                    inConstr_file.write(f"Static {residue.write_inConstr()}\n")
+                if self._raw_parameters["Freeze Non-Residues"]:
+                    logger.debug("Freeze Non-residues turned on, freezing residues")
+                    for residue in self._protein.sub_chain.residues:
+                        logger.debug(f"Freezing residue: {residue}")
+                        inConstr_file.write(f"Static {residue.write_inConstr()}\n")
 
-            for static_chain in self._static["chains"]:
-                logger.debug(f"Freezing chain: {static_chain}")
-                inConstr_file.write(f"Static {static_chain.write_inConstr()}\n")
+                for static_chain in self._static["chains"]:
+                    logger.debug(f"Freezing chain: {static_chain}")
+                    inConstr_file.write(f"Static {static_chain.write_inConstr()}\n")
 
-            for static_residue in self._static["residues"]:
-                logger.debug(f"Freezing residue: {static_residue}")
-                inConstr_file.write(f"Static {static_residue.write_inConstr()}\n")
+                for static_residue in self._static["residues"]:
+                    logger.debug(f"Freezing residue: {static_residue}")
+                    inConstr_file.write(f"Static {static_residue.write_inConstr()}\n")
 
-            for static_atom in self._static["atoms"]:
-                logger.debug(f"Freezing atom: {static_atom}")
-                inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
+                for static_atom in self._static["atoms"]:
+                    logger.debug(f"Freezing atom: {static_atom}")
+                    inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
 
-            #TODO Fix This for custom protonation states
+                #TODO Fix This for custom protonation states
 
-            # for pro_atom in self._protonation_states:
-            #     if pro_atom[1].lower() == "protonate":
-            #         logger.debug(f"Protonating atom: {pro_atom[0]}")
-            #         inConstr_file.write(f"Protonate {pro_atom[0].write_inConstr()}\n")
-            #
-            #     elif pro_atom[1].lower() == "deprotonate":
-            #         logger.debug(f"Deprotonating atom: {pro_atom[0]}")
-            #         inConstr_file.write(f"Deprotonate {pro_atom[0].write_inConstr()}\n")
-            #
+                # for pro_atom in self._protonation_states:
+                #     if pro_atom[1].lower() == "protonate":
+                #         logger.debug(f"Protonating atom: {pro_atom[0]}")
+                #         inConstr_file.write(f"Protonate {pro_atom[0].write_inConstr()}\n")
+                #
+                #     elif pro_atom[1].lower() == "deprotonate":
+                #         logger.debug(f"Deprotonating atom: {pro_atom[0]}")
+                #         inConstr_file.write(f"Deprotonate {pro_atom[0].write_inConstr()}\n")
+                #
 
-            # TODO include restrict Metal ligands (find all atoms that are some distance away from the metals)!
-            for disp_atom in self._displacement:
-                logger.debug(f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
-                inConstr_file.write(f"AtomPairRel {disp_atom[0].write_inConstr()} {disp_atom[1].write_inConstr()} -{disp_atom[2]} +{disp_atom[2]}\n")
+                # TODO include restrict Metal ligands (find all atoms that are some distance away from the metals)!
+                for disp_atom in self._displacement:
+                    logger.debug(f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
+                    inConstr_file.write(f"AtomPairRel {disp_atom[0].write_inConstr()} {disp_atom[1].write_inConstr()} -{disp_atom[2]} +{disp_atom[2]}\n")
 
         except IOError:
             logger.exception("Error opening inConstr file")

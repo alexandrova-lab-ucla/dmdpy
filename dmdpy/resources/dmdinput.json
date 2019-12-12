@@ -4,13 +4,14 @@
     "Final Temperature" : 0.1,
     "HEAT_X_C" : 0.1,
     "Echo File" : "echo",
-    "Echo dt" : 10,
     "Movie File" : "movie",
-    "Movie dt" : 10,
     "Restart File" : "dmd_restart",
-    "Restart dt" : 10,
-    "Start time" : 0,
-    "Max time" : 10000,
+    "dt" : 10,
+    "Time" : 100,
+
+    "titr" : {
+        "titr on" : false
+    },
 
     "Freeze Non-Residues": false,
     "Restrict Metal Ligands": false,
@@ -25,7 +26,7 @@
             ["Chain", ResNum, "ID"],
             ["Chain", ResNum, "ID"],
             ["Chain", ResNum, "ID"]
-        ],
+        ]
     },
     "Restrict Displacement" : [
         [["Chain", ResNum, "ID"], ["Chain", ResNum, "ID"], 0.2]

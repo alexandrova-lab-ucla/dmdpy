@@ -10,7 +10,8 @@ setup(
         'console_scripts' : [
             'relabelpdb.py=dmdpy.bin.relabelpdb:main',
             'setupdmd.py=dmdpy.bin.setupdmd:main',
-            'rundmd.py=dmdpy.bin.rundmd:main'
+            'rundmd.py=dmdpy.bin.rundmd:main',
+            'm2p=dmdpy.bin.movietopdb:main'
         ]
     },
 )

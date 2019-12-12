@@ -137,7 +137,7 @@ class Protein:
             for residue in self.non_residues:
                 start = 100
                 for atom in residue.atoms:
-                    atom.id = f"{atom.element}{start}"
+                    atom.id = f"{atom.element.upper()}{start}"
                     start += 1
 
                 self._logger.debug(f"Adding residue {residue} to substrate chain")
