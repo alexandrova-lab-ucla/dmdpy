@@ -33,6 +33,7 @@ class calculation:
         self._dmd_config = utilities.load_dmd_config()
         self._start_time = 0
         os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
+        #TODO remove the above os.environ...should do this elsewhere, check turbopy
 
         # Want to make sure that we make the scratch directory!!
         try:
@@ -47,6 +48,7 @@ class calculation:
             self._scratch_directory = './'
 
         logger.debug("Setting up DMD Environment")
+        #TODO load in the DMD Environment from the config
 
         if parameters is None:
             logger.debug("Checking for a dmdinput.json file")
@@ -203,8 +205,16 @@ class calculation:
             # Update the new start time!
             self._start_time += updated_parameters["Time"]
 
-        # TODO
-        # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
+        if self._commands:
+            logger.info("Did not finish all of the commands, will save the remaining commands")
+
+        else:
+            logger.info("Finished all commands...writing final dmdinput.json")
+
+        self._raw_parameters["Remaining Commands"] = self._commands
+        with open("dmdinput.json") as dmdinput:
+            #TODO try/except this
+            json.dump(self._raw_parameters, dmdinput)
 
         if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
             logger.info(
@@ -248,11 +258,6 @@ class calculation:
         except OSError:
             logger.exception("Error calling pdmd.linux")
             raise
-
-    def last_frame(self):
-        #TODO implement
-        """Returns a protein of the last from from the movie file"""
-        pass
 
     def calculation_alarm_handler(self, signum, frame):
         """
