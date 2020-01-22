@@ -6,6 +6,7 @@ import shutil
 import json
 import signal
 import subprocess
+import sys
 from subprocess import Popen, PIPE
 
 import dmdpy.protein.protein as protein
@@ -32,7 +33,6 @@ class calculation:
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
         self._start_time = 0
-        os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
 
         # Want to make sure that we make the scratch directory!!
         try:
@@ -46,7 +46,7 @@ class calculation:
             logger.warning("I will run job in the current directory.")
             self._scratch_directory = './'
 
-        logger.debug("Setting up DMD Environment")
+        os.environ["PATH"] = utilities.setup_dmd_environ()
 
         if parameters is None:
             logger.debug("Checking for a dmdinput.json file")
@@ -72,6 +72,8 @@ class calculation:
             self._raw_parameters = parameters
 
         # TODO check for valid parameters passed
+
+        # TODO check to see if we are doing titratable DMD-if so, create a titratable object and start interacting with that
 
         # TODO check for any exceptions raised from setupDMDjob
         if pro is None:
@@ -141,7 +143,32 @@ class calculation:
             self._commands = {"1": {}}
             logger.info("Commands passed, using those")
 
-        # TODO move to the scratch directory
+        if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
+            logger.info(f"Copying files from {os.path.abspath(self._submit_directory)} to {os.path.abspath(self._scratch_directory)}")
+            self._src_files = os.listdir(self._submit_directory)
+            for file_name in self._src_files:
+                full_file_name = os.path.join(self._submit_directory, file_name)
+                dest_file_name = os.path.join(self._scratch_directory, file_name)
+                if os.path.isfile(full_file_name):
+                    shutil.copy(full_file_name, dest_file_name)
+
+                elif os.path.isdir(full_file_name):
+                    if os.path.isdir(dest_file_name):
+                        shutil.rmtree(dest_file_name)
+
+                    shutil.copytree(full_file_name, dest_file_name)
+
+            os.chdir(os.path.abspath(self._scratch_directory))
+            # Now we have to change the logger output so that we can properly save the output
+            # TODO: have it use the formatter from an old handler instead!
+            node_logger = logging.FileHandler("./tmpLog", 'a')
+            formatter = logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
+            node_logger.setFormatter(formatter)
+            node_logger.setLevel(logging.INFO)
+            # These are the old_handlers, we will save them when we go back
+            # We don't remove them so that we can continue to get updates on the node
+            old_handlers = logger.handlers[:]
+            logger.addHandler(node_logger)
 
         # We can arm the timer
         if self._time_to_run != -1:
@@ -165,19 +192,15 @@ class calculation:
                 updated_parameters[changes] = steps[changes]
 
             if updated_parameters["titr"]["titr on"]:
-                logger.critical("Not implemented yet, dingus")
-                pass
+                # TODO check to see if we have a titratable object first and then decide if having this turned on is valid or not
+                logger.warning("Titratable feature cannot be turned on in the middle of a run")
 
             elif "Custom protonation states" in steps.keys():
-                logger.critical("Not implemented yet, dingus")
-                pass
+                logger.warning("Why are you trying to change the protonation state in the middle of DMD?")
 
             elif "Frozen atoms" in steps.keys() or "Restrict Displacement" in steps.keys():
-                #TODO implement
-                #make new inConstr file, run complex-linux.1, and then use the restart file
-                logger.critical("Not implemented yet, dingus")
-
-                #self.run_dmd(updated_parameters, self._start_time, True)
+                logger.warning("Cannot freeze atoms or change displacement between atoms in the middle of a run.")
+                logger.warning("This does not make any...ignoring these")
 
             else:
                 # We can just run the job with no issues other than those raised from the above
@@ -189,10 +212,64 @@ class calculation:
             # Update the new start time!
             self._start_time += updated_parameters["Time"]
 
-        #TODO
-        # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
+        if self._commands:
+            logger.info("Did not finish all of the commands, will save the remaining commands")
 
-        #TODO change back to initial directory if necessary
+        else:
+            logger.info("Finished all commands...writing final dmdinput.json")
+
+        self._raw_parameters["Remaining Commands"] = self._commands
+        with open("dmdinput.json") as dmdinput:
+            #TODO try/except this
+            json.dump(self._raw_parameters, dmdinput)
+
+        if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
+            logger.info(
+                f"Copying files from {os.path.abspath(self._scratch_directory)} to {os.path.abspath(self._submit_directory)}")
+            self._src_files = os.listdir(self._scratch_directory)
+            for file_name in self._src_files:
+                full_file_name = os.path.join(self._scratch_directory, file_name)
+                dest_file_name = os.path.join(self._submit_directory, file_name)
+                if os.path.isfile(full_file_name):
+                    shutil.copy(full_file_name, dest_file_name)
+
+                # Want to remove and then copy over a directory and everything in it!
+                elif os.path.isdir(full_file_name):
+                    if os.path.isdir(dest_file_name):
+                        shutil.rmtree(dest_file_name)
+
+                    shutil.copytree(full_file_name, dest_file_name)
+
+            os.chdir(os.path.abspath(self._submit_directory))
+            # Now we swap back to the initial handlers
+            # We want to get rid of all of our old handlers
+            for hdlr in logger.handlers[:]:
+                logger.removeHandler(hdlr)
+
+            # This appends our temp file to our output file!
+            # TODO, allow the ext://sys.stdout to be replaced by whatever the initial logger stream was...
+            appendHandler = logging.StreamHandler(sys.stdout)
+            formatter = logging.Formatter("%(message)s")
+            appendHandler.setFormatter(formatter)
+            logger.addHandler(appendHandler)
+            try:
+                with open('tmpLog') as logFile:
+                    for line in logFile:
+                        logger.info(line.rstrip())
+                os.remove("tmpLog")
+
+            except IOError:
+                logger.critical("Error with appending node log file to initial log file")
+
+            # Officially gets rid of everything
+            for hdlr in logger.handlers[:]:
+                logger.removeHandler(hdlr)
+
+            # Now we go back to our initial handlers
+            for hdlr in old_handlers:
+                logger.addHandler(hdlr)
+
+        logger.info("Finished Calculation")
 
     def run_dmd(self, parameters, start_time: int, use_restart: bool):
         # Remake the start file with any changed parameters
@@ -216,11 +293,6 @@ class calculation:
         except OSError:
             logger.exception("Error calling pdmd.linux")
             raise
-
-    def last_frame(self):
-        #TODO implement
-        """Returns a protein of the last from from the movie file"""
-        pass
 
     def calculation_alarm_handler(self, signum, frame):
         """
