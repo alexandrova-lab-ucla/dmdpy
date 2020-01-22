@@ -143,7 +143,23 @@ class calculation:
             self._commands = {"1": {}}
             logger.info("Commands passed, using those")
 
-        # TODO move to the scratch directory
+        if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
+            logger.info(f"Copying files from {os.path.abspath(self._submit_directory)} to {os.path.abspath(self._scratch_directory)}")
+            self._src_files = os.listdir(self._submit_directory)
+            for file_name in self._src_files:
+                full_file_name = os.path.join(self._submit_directory, file_name)
+                dest_file_name = os.path.join(self._scratch_directory, file_name)
+                if os.path.isfile(full_file_name):
+                    shutil.copy(full_file_name, dest_file_name)
+
+                elif os.path.isdir(full_file_name):
+                    if os.path.isdir(dest_file_name):
+                        shutil.rmtree(dest_file_name)
+
+                    shutil.copytree(full_file_name, dest_file_name)
+
+            os.chdir(os.path.abspath(self._scratch_directory))
+            #TODO have the loggers write to a tmpLog, like in turbopy
 
         # We can arm the timer
         if self._time_to_run != -1:
@@ -167,6 +183,7 @@ class calculation:
                 updated_parameters[changes] = steps[changes]
 
             if updated_parameters["titr"]["titr on"]:
+                # TODO check to see if we have a titratable object first and then decide if having this turned on is valid or not
                 logger.warning("Titratable feature cannot be turned on in the middle of a run")
 
             elif "Custom protonation states" in steps.keys():
@@ -189,7 +206,25 @@ class calculation:
         # TODO
         # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
 
-        #TODO change back to initial directory if necessary
+        if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
+            logger.info(
+                f"Copying files from {os.path.abspath(self._scratch_directory)} to {os.path.abspath(self._submit_directory)}")
+            self._src_files = os.listdir(self._scratch_directory)
+            for file_name in self._src_files:
+                full_file_name = os.path.join(self._scratch_directory, file_name)
+                dest_file_name = os.path.join(self._submit_directory, file_name)
+                if os.path.isfile(full_file_name):
+                    shutil.copy(full_file_name, dest_file_name)
+
+                # Want to remove and then copy over a directory and everything in it!
+                elif os.path.isdir(full_file_name):
+                    if os.path.isdir(dest_file_name):
+                        shutil.rmtree(dest_file_name)
+
+                    shutil.copytree(full_file_name, dest_file_name)
+
+            os.chdir(os.path.abspath(self._submit_directory))
+            #TODO have the loggers switch from temp to normal again
 
     def run_dmd(self, parameters, start_time: int, use_restart: bool):
         # Remake the start file with any changed parameters
