@@ -83,36 +83,6 @@ class setupDMDjob:
             for f in files:
                 if os.path.splitext(f)[-1].lower() == ".pdb":
                     logger.debug(f"Found a pdb file to use: {f}")
-                    try:
-                        self._protein = utilities.load_pdb(f)
-
-                    except:
-                        logger.exception("You idiot!")
-                        raise
-
-            if self._protein is None:
-                logger.error("No pdb file in the run directory")
-                raise ValueError
-
-        else:
-            self._protein = pro
-
-        # These should be pointers to these objects so that if they change, it is updated in this list automatically
-        self._static = {"chains": [], "residues" : [], "atoms" : []}
-        for chains in self._raw_parameters["Frozen atoms"]["Chains"]:
-            for c in self._protein.chains:
-                if c.name == chains:
-                    self._static["chains"].append(c)
-
-        for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
-            self._static["residues"].append(self._protein.get_residue(residue))
-
-        for atom in self._raw_parameters["Frozen atoms"]["Atoms"]:
-            self._static["atoms"].append(self._protein.get_atom(atom))
-
-        self._protonation_states = []
-        for prot_atom in self._raw_parameters["Custom protonation states"]:
-            self._protonation_states.append([self._protein.get_residue(prot_atom[:2]), prot_atom[3]])
             # We store the residue here and then we backtrack and figure out the correct atom to protonate later after
             # proper relabeling/renaming
 
@@ -244,7 +214,7 @@ class setupDMDjob:
                     logger.debug(f"Freezing atom: {static_atom}")
                     inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
 
-                #TODO Fix This for custom protonation states
+                # TODO Fix This for custom protonation states
 
                 # for pro_atom in self._protonation_states:
                 #     if pro_atom[1].lower() == "protonate":
@@ -258,12 +228,13 @@ class setupDMDjob:
 
                 # TODO include restrict Metal ligands (find all atoms that are some distance away from the metals)!
                 for disp_atom in self._displacement:
-                    logger.debug(f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
-                    inConstr_file.write(f"AtomPairRel {disp_atom[0].write_inConstr()} {disp_atom[1].write_inConstr()} -{disp_atom[2]} +{disp_atom[2]}\n")
+                    logger.debug(
+                        f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
+                    inConstr_file.write(
+                        f"AtomPairRel {disp_atom[0].write_inConstr()} {disp_atom[1].write_inConstr()} -{disp_atom[2]} +{disp_atom[2]}\n")
 
         except IOError:
             logger.exception("Error opening inConstr file")
             raise
 
         logger.debug("Finished making the inConstr file!")
-

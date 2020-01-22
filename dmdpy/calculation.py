@@ -73,6 +73,8 @@ class calculation:
 
         # TODO check for valid parameters passed
 
+        # TODO check to see if we are doing titratable DMD-if so, create a titratable object and start interacting with that
+
         # TODO check for any exceptions raised from setupDMDjob
         if pro is None:
             if not os.path.isfile("initial.pdb"):
@@ -165,19 +167,14 @@ class calculation:
                 updated_parameters[changes] = steps[changes]
 
             if updated_parameters["titr"]["titr on"]:
-                logger.critical("Not implemented yet, dingus")
-                pass
+                logger.warning("Titratable feature cannot be turned on in the middle of a run")
 
             elif "Custom protonation states" in steps.keys():
-                logger.critical("Not implemented yet, dingus")
-                pass
+                logger.warning("Why are you trying to change the protonation state in the middle of DMD?")
 
             elif "Frozen atoms" in steps.keys() or "Restrict Displacement" in steps.keys():
-                #TODO implement
-                #make new inConstr file, run complex-linux.1, and then use the restart file
-                logger.critical("Not implemented yet, dingus")
-
-                #self.run_dmd(updated_parameters, self._start_time, True)
+                logger.warning("Cannot freeze atoms or change displacement between atoms in the middle of a run.")
+                logger.warning("This does not make any...ignoring these")
 
             else:
                 # We can just run the job with no issues other than those raised from the above
@@ -189,7 +186,7 @@ class calculation:
             # Update the new start time!
             self._start_time += updated_parameters["Time"]
 
-        #TODO
+        # TODO
         # Now we save the remaining commands and transfer everything back and forth between the necessary locations!
 
         #TODO change back to initial directory if necessary
