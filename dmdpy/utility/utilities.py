@@ -211,6 +211,77 @@ def valid_parameters(parameters: dict):
             except ValueError:
                 raise ParameterError(f"Invalid specification of protonation states: {state}")
 
+    if "Frozen atoms" in parameters.keys():
+        if "Chains" not in parameters["Frozen atoms"].keys():
+            raise ValueError("Missing Chains in frozen atom definition")
+
+        else:
+            for chain in parameters["Frozen atoms"]["Chains"]:
+                try:
+                    assert(type(chain) == str)
+                    assert(chain.isalpha())
+
+                except ValueError:
+                    raise ParameterError(f"Incorrect value provided for frozen chain: {chain}")
+
+        if "Residues" not in parameters["Frozen atoms"].keys():
+            raise ValueError("Missing Residue in frozen atom definition")
+
+        else:
+            for residue in parameters["Frozen atoms"]["Residues"]:
+                try:
+                    assert(type(residue[0]) == str and residue[0].isalpha())
+                    assert(type(residue[1]) == int and residue[1] > 0)
+
+                except ValueError:
+                    raise ParameterError(f"Incorrect value provided for frozen residue: {residue}")
+
+        if "Atoms" not in parameters["Frozen atoms"].keys():
+            raise ValueError("Missing Atom in frozen atom definition")
+
+        else:
+            for atom in parameters["Frozen atoms"]["Atoms"]:
+                try:
+                    assert(type(atom[0]) is str and atom[0].isalpha())
+                    assert(type(atom[1]) is int and atom[1] > 0)
+                    assert(type(atom[2]) is str and atom[2].isalpha())
+
+                except ValueError:
+                    raise ParameterError(f"Incorrect value provided for frozen atom: {atom}")
+
+    if "Restrict Displacement" in parameters.keys():
+        for id in parameters["Restrict Displacement"]:
+            try:
+                assert(len( id) == 3)
+                assert(type(id[2]) is float and id[2] > 0)
+
+                assert(len(id[0]) == 3)
+                assert(type(id[0][0]) is str and id[0][0].isalpha())
+                assert(type(id[0][1]) is int and id[0][1] > 0)
+                assert(type(id[0][2]) is str and id[0][0].isalpha())
+
+                assert(len(id[1]) == 3)
+                assert (type(id[1][0]) is str and id[1][0].isalpha())
+                assert (type(id[1][1]) is int and id[1][1] > 0)
+                assert (type(id[1][2]) is str and id[1][0].isalpha())
+
+                assert(id[0] != id[1])
+
+            except ValueError:
+                raise ParameterError(f"Invalid definition of Restrict Displacement: {id}")
+
+    if "Commands" not in parameters.keys():
+        raise ValueError("Missing commands definition")
+
+    else:
+        for command in parameters["Commands"]:
+            try:
+                assert(type(command) is dict)
+
+            except ValueError:
+                raise ParameterError(f"Command provided is not a dictionary: {command}")
+
+
 def load_pdb(file: str):
     logger.debug(f"Finding file: {file}")
 

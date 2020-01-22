@@ -87,16 +87,22 @@ class setupDMDjob:
             # proper relabeling/renaming
 
         self._displacement = []
-        for atom_pair in self._raw_parameters["Restrict Displacement"]:
-            self._displacement.append([self._protein.get_atom(atom_pair[0]), self._protein.get_atom(atom_pair[1]), atom_pair[2]])
+        if "Restrict Displacement" in self._raw_parameters.keys():
+            for atom_pair in self._raw_parameters["Restrict Displacement"]:
+                self._displacement.append([self._protein.get_atom(atom_pair[0]), self._protein.get_atom(atom_pair[1]), atom_pair[2]])
 
-        #TODO get the chains and the atoms in the frozen atoms here...
         self._static = {"chains": [], "residues": [], "atoms": []}
-        if self._raw_parameters["Frozen atoms"]:
+        if "Frozen atoms" in self._raw_parameters.keys():
+            #TODO try and except this
             for chain in self._raw_parameters["Frozen atoms"]["Chains"]:
                 self._static["chains"].append(self._protein.get_chain(chain))
 
-            #TODO Finish this
+            for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
+                self._static["residues"].append(self._protein.get_residue(residue))
+
+            for atom in self._raw_parameters["Frozen atoms"]["Atoms"]:
+                self._static["atoms"].append(self._protein.get_atom(atom))
+
 
         logger.debug("Changing protein name to initial.pdb and writing out")
         self._protein.reformat_protein()
@@ -210,7 +216,6 @@ class setupDMDjob:
                         logger.debug(f"Freezing residue: {residue}")
                         inConstr_file.write(f"Static {residue.write_inConstr()}\n")
 
-                #TODO, I don't believe I every specify how to create this static list...
                 for static_chain in self._static["chains"]:
                     logger.debug(f"Freezing chain: {static_chain}")
                     inConstr_file.write(f"Static {static_chain.write_inConstr()}\n")
