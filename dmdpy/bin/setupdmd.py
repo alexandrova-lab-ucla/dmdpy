@@ -19,10 +19,8 @@ def main():
 
     logger = logging.getLogger(__name__)
 
-    sdj = setupDMDjob()
-
     try:
-        pass
+        sdj = setupDMDjob()
 
     except:
         logger.critical("Exception encountered, quiting")
