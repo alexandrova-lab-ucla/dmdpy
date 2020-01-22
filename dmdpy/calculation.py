@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 import dmdpy.protein.protein as protein
 import dmdpy.utility.utilities as utilities
 from dmdpy.setupjob import setupDMDjob
+from dmdpy.utility.exceptions import ParameterError
 
 logger=logging.getLogger(__name__)
 
@@ -71,7 +72,17 @@ class calculation:
             logger.debug("Using parameters passed")
             self._raw_parameters = parameters
 
-        # TODO check for valid parameters passed
+        # Now we check to see if the parameters are indeed valid
+        try:
+            utilities.valid_parameters(self._raw_parameters)
+
+        except ValueError:
+            logger.exception("Missing a parameter definition!")
+            raise
+
+        except ParameterError:
+            logger.exception("Invalid parameter specification")
+            raise
 
         # TODO check to see if we are doing titratable DMD-if so, create a titratable object and start interacting with that
 
@@ -218,10 +229,12 @@ class calculation:
         else:
             logger.info("Finished all commands...writing final dmdinput.json")
 
+        logger.debug("Setting remaining commands to the rest of the commands")
         self._raw_parameters["Remaining Commands"] = self._commands
         with open("dmdinput.json") as dmdinput:
-            #TODO try/except this
+            logger.debug("Dumping to json")
             json.dump(self._raw_parameters, dmdinput)
+
 
         if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):
             logger.info(

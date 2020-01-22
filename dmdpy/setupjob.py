@@ -11,6 +11,7 @@ from subprocess import Popen, PIPE
 
 import dmdpy.utility.utilities as utilities
 import dmdpy.protein.protein as protein
+from dmdpy.utility.exceptions import ParameterError
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,17 @@ class setupDMDjob:
             logger.debug("Using passed parameters")
             self._raw_parameters = parameters
 
-        # TODO: check to see if parameters is good!
+        try:
+            utilities.valid_parameters(self._raw_parameters)
+
+        except ValueError:
+            logger.exception("Missing a parameter definition!")
+            raise
+
+        except ParameterError:
+            logger.exception("Invalid parameter specification")
+            raise
+
 
         if pro is None:
             logger.debug("Checking for a pdb")
@@ -93,15 +104,29 @@ class setupDMDjob:
 
         self._static = {"chains": [], "residues": [], "atoms": []}
         if "Frozen atoms" in self._raw_parameters.keys():
-            #TODO try and except this
             for chain in self._raw_parameters["Frozen atoms"]["Chains"]:
-                self._static["chains"].append(self._protein.get_chain(chain))
+                try:
+                    self._static["chains"].append(self._protein.get_chain(chain))
+
+                except ValueError:
+                    logger.exception("Could not find the chain!")
+                    raise
 
             for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
-                self._static["residues"].append(self._protein.get_residue(residue))
+                try:
+                    self._static["residues"].append(self._protein.get_residue(residue))
+
+                except ValueError:
+                    logger.exception("Could not find the residue!")
+                    raise
 
             for atom in self._raw_parameters["Frozen atoms"]["Atoms"]:
-                self._static["atoms"].append(self._protein.get_atom(atom))
+                try:
+                    self._static["atoms"].append(self._protein.get_atom(atom))
+
+                except ValueError:
+                    logger.exception("Could not find the atom!")
+                    raise
 
 
         logger.debug("Changing protein name to initial.pdb and writing out")

@@ -102,7 +102,6 @@ def setup_dmd_environ():
     return os.environ
 
 def valid_parameters(parameters: dict):
-    #TODO Finish this
     """Checks to see if the dmd parameters passed are valid at all"""
     logger.debug("Checking if parameters are valid")
     if "Thermostat" not in parameters.keys():
