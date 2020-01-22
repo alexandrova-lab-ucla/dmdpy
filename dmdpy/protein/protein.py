@@ -177,6 +177,14 @@ class Protein:
         self._logger.error("Could not find requested residue")
         raise ValueError
 
+    def get_chain(self, identifier):
+        for chain in self.chains:
+            if chain.name == identifier:
+                return chain
+
+        self._logger.error("Could not find the requested chain")
+        raise ValueError
+
     def write_pdb(self):
         self._logger.debug(f"Writing out pdb: {self}")
         try:

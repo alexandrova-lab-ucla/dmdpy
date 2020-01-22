@@ -11,6 +11,8 @@ from subprocess import Popen, PIPE
 
 
 from dmdpy.protein import atom, chain, residue, protein
+import dmdpy.utility.constants as constants
+from dmdpy.utility.exceptions import ParameterError
 
 __all__=[
     'load_logger_config',
@@ -20,7 +22,9 @@ __all__=[
     'create_config',
     'make_start_file',
     'make_state_file',
-    'make_movie'
+    'make_movie',
+    'setup_dmd_environ',
+    'valid_parameters'
 ]
 
 logger = logging.getLogger(__name__)
@@ -90,6 +94,122 @@ def load_dmd_config():
         raise
 
 dmd_config = load_dmd_config()
+
+def setup_dmd_environ():
+    """ setups of an os.environ so that DMD can be run """
+    logger.debug("Setting up DMD Environment")
+    os.environ["PATH"] += os.pathsep + dmd_config["PATHS"]["DMD_DIR"]
+    return os.environ
+
+def valid_parameters(parameters: dict):
+    #TODO Finish this
+    """Checks to see if the dmd parameters passed are valid at all"""
+    logger.debug("Checking if parameters are valid")
+    if "Thermostat" not in parameters.keys():
+        raise ParameterError("No Thermostat")
+
+    elif parameters["Thermostat"] not in constants.THERMOSTATS:
+        raise ValueError("Invalid thermostat")
+
+    if "Initial Temperature" not in parameters.keys():
+        raise ParameterError("No Initial Temperature")
+
+    else:
+        try:
+            assert(parameters["Initial Temperature"].isdigit() and parameters["Initial Temperature"] > 0)
+
+        except ValueError:
+            raise ParameterError("Incorrect initial temperature provided")
+
+    if "Final Temperature" not in parameters.keys():
+        raise ParameterError("No Final Temperature")
+
+    else:
+        try:
+            assert (parameters["Final Temperature"].isdigit() and parameters["Final Temperature"] > 0)
+
+        except ValueError:
+            raise ParameterError("Incorrect Final temperature provided")
+
+    if "HEAT_X_C" not in parameters.keys():
+        raise ParameterError("No HEAT_X_C")
+
+    else:
+        try:
+            assert (parameters["HEAT_X_C"].isdigit() and parameters["HEAT_X_C"] > 0)
+
+        except ValueError:
+            raise ParameterError("Incorrect HEAT_X_C provided")
+
+    if "Echo File" not in parameters.keys():
+        raise ParameterError("You did not specify what to label the echo file")
+
+    if "Movie File" not in parameters.keys():
+        raise ParameterError("You did not specify what to call the movie file")
+
+    if 'Restart File' not in parameters.keys():
+        raise ParameterError("You did not specify what to call the restart file")
+
+    if "dt" not in parameters.keys():
+        raise ParameterError("You did not specify the time in which save data")
+
+    else:
+        try:
+            assert(parameters["dt"].isdigit() and parameters["dt"] > 0)
+
+        except ValueError:
+            raise ParameterError(f"Invalid value provided for dt: {parameters['dt']}")
+
+    if "Time" not in parameters.keys():
+        raise ParameterError("You did not specify the default length of time to be for the DMD simulation")
+
+    else:
+        try:
+            assert (parameters["Time"].isdigit() and parameters["Time"] > 0)
+
+        except ValueError:
+            raise ParameterError(f"Invalid value provided for Time: {parameters['Time']}")
+
+    if "titr" in parameters.keys():
+        try:
+            assert(type(parameters["titr"]["titr on"]) == bool)
+
+        except ValueError:
+            raise ParameterError("You did not correctly type the titr on parameters, must be a bool")
+
+    if "Freeze Non-Residues" not in parameters.keys():
+        raise ValueError("Missing Freeze Non-Residues parameters")
+
+    else:
+        try:
+            assert(type(parameters["Freeze Non-Residues"]) == bool)
+
+        except ValueError:
+            raise ParameterError("Freeze Non-Residues MUST be a bool")
+
+    if "Restrict Metal Ligands" not in parameters.keys():
+        raise ValueError("Missing Restrict Metal Ligands parameters")
+
+    else:
+        try:
+            assert (type(parameters["Restrict Metal Ligands"]) == bool)
+
+        except ValueError:
+            raise ParameterError("Restrict Metal Ligands MUST be a bool")
+
+    if "Custom protonation states" not in parameters.keys():
+        raise ValueError("Missing Custom protonation state parameters")
+
+    else:
+        for state in parameters["Custom protonation states"]:
+            try:
+                assert(len(state) == 3)
+                assert(type(state[0]) == str)
+                assert(type(state[1]) == int and state[1] > 0)
+                assert(type(state[2]) == str)
+
+            except ValueError:
+                raise ParameterError(f"Invalid specification of protonation states: {state}")
 
 def load_pdb(file: str):
     logger.debug(f"Finding file: {file}")

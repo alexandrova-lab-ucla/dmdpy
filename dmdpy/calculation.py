@@ -6,6 +6,7 @@ import shutil
 import json
 import signal
 import subprocess
+import sys
 from subprocess import Popen, PIPE
 
 import dmdpy.protein.protein as protein
@@ -32,8 +33,6 @@ class calculation:
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
         self._start_time = 0
-        os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
-        #TODO remove the above os.environ...should do this elsewhere, check turbopy
 
         # Want to make sure that we make the scratch directory!!
         try:
@@ -47,8 +46,7 @@ class calculation:
             logger.warning("I will run job in the current directory.")
             self._scratch_directory = './'
 
-        logger.debug("Setting up DMD Environment")
-        #TODO load in the DMD Environment from the config
+        os.environ["PATH"] = utilities.setup_dmd_environ()
 
         if parameters is None:
             logger.debug("Checking for a dmdinput.json file")
@@ -161,7 +159,16 @@ class calculation:
                     shutil.copytree(full_file_name, dest_file_name)
 
             os.chdir(os.path.abspath(self._scratch_directory))
-            #TODO have the loggers write to a tmpLog, like in turbopy
+            # Now we have to change the logger output so that we can properly save the output
+            # TODO: have it use the formatter from an old handler instead!
+            node_logger = logging.FileHandler("./tmpLog", 'a')
+            formatter = logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
+            node_logger.setFormatter(formatter)
+            node_logger.setLevel(logging.INFO)
+            # These are the old_handlers, we will save them when we go back
+            # We don't remove them so that we can continue to get updates on the node
+            old_handlers = logger.handlers[:]
+            logger.addHandler(node_logger)
 
         # We can arm the timer
         if self._time_to_run != -1:
@@ -234,7 +241,35 @@ class calculation:
                     shutil.copytree(full_file_name, dest_file_name)
 
             os.chdir(os.path.abspath(self._submit_directory))
-            #TODO have the loggers switch from temp to normal again
+            # Now we swap back to the initial handlers
+            # We want to get rid of all of our old handlers
+            for hdlr in logger.handlers[:]:
+                logger.removeHandler(hdlr)
+
+            # This appends our temp file to our output file!
+            # TODO, allow the ext://sys.stdout to be replaced by whatever the initial logger stream was...
+            appendHandler = logging.StreamHandler(sys.stdout)
+            formatter = logging.Formatter("%(message)s")
+            appendHandler.setFormatter(formatter)
+            logger.addHandler(appendHandler)
+            try:
+                with open('tmpLog') as logFile:
+                    for line in logFile:
+                        logger.info(line.rstrip())
+                os.remove("tmpLog")
+
+            except IOError:
+                logger.critical("Error with appending node log file to initial log file")
+
+            # Officially gets rid of everything
+            for hdlr in logger.handlers[:]:
+                logger.removeHandler(hdlr)
+
+            # Now we go back to our initial handlers
+            for hdlr in old_handlers:
+                logger.addHandler(hdlr)
+
+        logger.info("Finished Calculation")
 
     def run_dmd(self, parameters, start_time: int, use_restart: bool):
         # Remake the start file with any changed parameters
