@@ -11,7 +11,13 @@ from dmdpy.utility import utilities
 
 def main():
     # Load in the logger
-    utilities.load_logger_config()
+    try:
+        utilities.load_logger_config()
+
+    except ValueError:
+        print("CRITICAL: Created .dmdpy in the root")
+        sys.exit(1)
+
     logger = logging.getLogger(__name__)
 
     logger.debug("Parsing Arguments")

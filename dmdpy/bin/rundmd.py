@@ -3,14 +3,13 @@
 import logging
 import sys
 import os
-import json
 
 
 from dmdpy.utility import utilities
 import dmdpy.calculation
 
-def main():
 
+def main():
     try:
         utilities.load_logger_config()
 
@@ -20,13 +19,15 @@ def main():
 
     logger = logging.getLogger(__name__)
 
-    # commands = {
-    #     "1" : {
-    #         "Time" : 50
-    #     }
-    # }
+    # TODO have it receive argument for the number of cores, time to run, and a scratch directory
 
-    c = dmdpy.calculation(cores=8)
+    try:
+        logger.debug("Attempting to begin the calculation")
+        c = dmdpy.calculation(cores=8)
+
+    except:
+        logger.error("Error on the calculation")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
