@@ -67,7 +67,7 @@ class Protein:
                     # update residue, and atomic numbering for normal atoms
                     self._logger.debug(f"Renumbering residue: {self.chains[chain_num].residues[residue_num]} to {res_renum} and its atoms starting at {atom_renum}")
                     self.chains[chain_num].residues[residue_num].number = res_renum
-                    self.chains[chain_num].residues[residue_num].inConstr_number = residue_num
+                    self.chains[chain_num].residues[residue_num].inConstr_number = residue_num + 1
                     for atom in self.chains[chain_num].residues[residue_num].atoms:
                         atom.number = atom_renum
                         atom_renum += 1

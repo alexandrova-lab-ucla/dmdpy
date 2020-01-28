@@ -19,6 +19,7 @@ PROTONATED = {
     "HIS": [("NE2", "1HNE")]
 }
 
+#Need to add arganine and lysine
 DEPROTONATED = {
     "SER": [("OG", "HO")],
     "CYS": [("SG", "HG1")],
@@ -27,7 +28,9 @@ DEPROTONATED = {
     "GLN": [("NE2", "1HNE"), ("NE2", "2HNE")],
     "TYR": [("OH", "HO")],
     "TRP": [("NE1", "HE1")],
-    "HIS": [("ND1", "HD1")]
+    "HIS": [("ND1", "HD1")],
+    "ARG": [("NH1", "2HH1")]# TODO Extend this for all of the possible hydrogens!!!
+
 }
 
 #All metals through bismuth

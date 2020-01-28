@@ -47,7 +47,7 @@ class calculation:
             logger.warning("I will run job in the current directory.")
             self._scratch_directory = './'
 
-        os.environ["PATH"] = utilities.setup_dmd_environ()
+        utilities.setup_dmd_environ()
 
         if parameters is None:
             logger.debug("Checking for a dmdinput.json file")
@@ -231,9 +231,9 @@ class calculation:
 
         logger.debug("Setting remaining commands to the rest of the commands")
         self._raw_parameters["Remaining Commands"] = self._commands
-        with open("dmdinput.json") as dmdinput:
+        with open("dmdinput.json", 'w') as dmdinput:
             logger.debug("Dumping to json")
-            json.dump(self._raw_parameters, dmdinput)
+            json.dump(self._raw_parameters, dmdinput, indent=4)
 
 
         if os.path.abspath(self._scratch_directory) != os.path.abspath(self._submit_directory):

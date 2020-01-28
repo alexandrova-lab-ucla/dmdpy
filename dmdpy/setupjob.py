@@ -144,7 +144,8 @@ class setupDMDjob:
         self._protonate = []
         if "Custom protonation states" in self._raw_parameters.keys():
             for item in self._raw_parameters["Custom protonation states"]:
-                self._protonate.append([self._protein.get_residue(item[:1]), item[2:]])
+                id = [item[0], item[1]]
+                self._protonate.append([self._protein.get_residue(id), item[2:]])
 
         logger.debug("Changing protein name to initial.pdb and writing out")
         self._protein.reformat_protein()

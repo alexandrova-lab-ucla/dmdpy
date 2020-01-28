@@ -26,6 +26,7 @@ def main():
         c = dmdpy.calculation(cores=8)
 
     except:
+        logger.exception("Check the error")
         logger.error("Error on the calculation")
         sys.exit(1)
 
