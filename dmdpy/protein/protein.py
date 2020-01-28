@@ -281,4 +281,16 @@ class Protein:
             for residue in chain.residues[1:-1]:
                 rename_residue(residue)
 
+    def atoms_near_metal(self, cutoff = 3.05):
+        atom_list = []
+        for metal in self.metals:
+            for chain in self.chains:
+                for residue in chain.residues:
+                    for atom in residue.atoms:
+                        if atom.id in constants.HEAVY_ATOMS:
+                            if (atom.coords - metal.coords).norm() < 3.05:
+                                atom_list.append(atom)
+
+        return atom_list
+
 

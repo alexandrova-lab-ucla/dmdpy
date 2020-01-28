@@ -271,7 +271,6 @@ class setupDMDjob:
                     logger.debug(f"Freezing atom: {static_atom}")
                     inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
 
-                # TODO Fix This for custom protonation states
                 for state in self._protonate:
                     logger.debug(f"Adding protonation state: {state[0]} and {state[1]}")
                     atom_id = ""
@@ -309,17 +308,13 @@ class setupDMDjob:
                     else:
                         inConstr_file.write(f"Deprotonate {pro_atom.write_inConstr()}\n")
 
-                # for pro_atom in self._protonation_states:
-                #     if pro_atom[1].lower() == "protonate":
-                #         logger.debug(f"Protonating atom: {pro_atom[0]}")
-                #         inConstr_file.write(f"Protonate {pro_atom[0].write_inConstr()}\n")
-                #
-                #     elif pro_atom[1].lower() == "deprotonate":
-                #         logger.debug(f"Deprotonating atom: {pro_atom[0]}")
-                #         inConstr_file.write(f"Deprotonate {pro_atom[0].write_inConstr()}\n")
-                #
 
-                # TODO include restrict Metal ligands (find all atoms that are some distance away from the metals)!
+                for atoms in self._protein.atoms_near_metal():
+                    logger.debug(f"Freezing atom: {atoms} since too close to a metal")
+                    #TODO need to find the atoms attached to each of these atoms and do a restrict displacement
+                    #make a mol2 file and get the bond list from here!!!!
+                    inConstr_file.write(f"Static {atoms.write_inConstr()}\n")
+
                 for disp_atom in self._displacement:
                     logger.debug(
                         f"Restricting motion of atom: {disp_atom[0]} and atom {disp_atom[1]} by {disp_atom[2]}")
