@@ -13,6 +13,8 @@ __all__=[
     'Protein'
 ]
 
+#TODO Add a function to remove Hydrogens that were deprotonated or protonated, ie standard protonation states
+
 class Protein:
 
     __slots__ = ['chains', '_logger', 'non_residues', 'metals', 'name', 'sub_chain']

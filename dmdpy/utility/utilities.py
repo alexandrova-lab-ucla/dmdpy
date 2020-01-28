@@ -11,7 +11,7 @@ from subprocess import Popen, PIPE
 
 
 from dmdpy.protein import atom, chain, residue, protein
-import dmdpy.utility.constants as constants
+from dmdpy.utility import constants
 from dmdpy.utility.exceptions import ParameterError
 
 __all__=[
@@ -115,7 +115,7 @@ def valid_parameters(parameters: dict):
 
     else:
         try:
-            assert(parameters["Initial Temperature"].isdigit() and parameters["Initial Temperature"] > 0)
+            assert(type(parameters["Initial Temperature"]) is float and parameters["Initial Temperature"] > 0)
 
         except ValueError:
             raise ParameterError("Incorrect initial temperature provided")
@@ -125,7 +125,7 @@ def valid_parameters(parameters: dict):
 
     else:
         try:
-            assert (parameters["Final Temperature"].isdigit() and parameters["Final Temperature"] > 0)
+            assert (type(parameters["Final Temperature"]) is float and parameters["Final Temperature"] > 0)
 
         except ValueError:
             raise ParameterError("Incorrect Final temperature provided")
@@ -135,7 +135,7 @@ def valid_parameters(parameters: dict):
 
     else:
         try:
-            assert (parameters["HEAT_X_C"].isdigit() and parameters["HEAT_X_C"] > 0)
+            assert (type(parameters["HEAT_X_C"]) is float and parameters["HEAT_X_C"] > 0)
 
         except ValueError:
             raise ParameterError("Incorrect HEAT_X_C provided")
@@ -154,7 +154,7 @@ def valid_parameters(parameters: dict):
 
     else:
         try:
-            assert(parameters["dt"].isdigit() and parameters["dt"] > 0)
+            assert(type(parameters["dt"]) is int and parameters["dt"] > 0)
 
         except ValueError:
             raise ParameterError(f"Invalid value provided for dt: {parameters['dt']}")
@@ -164,7 +164,7 @@ def valid_parameters(parameters: dict):
 
     else:
         try:
-            assert (parameters["Time"].isdigit() and parameters["Time"] > 0)
+            assert (type(parameters["Time"]) is int and parameters["Time"] > 0)
 
         except ValueError:
             raise ParameterError(f"Invalid value provided for Time: {parameters['Time']}")

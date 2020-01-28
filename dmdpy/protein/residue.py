@@ -32,6 +32,13 @@ class Residue:
         atom.chain = self.chain
         self.atoms.append(atom)
 
+    def get_atom(self, name):
+        for atom in self.atoms:
+            if atom.id == name:
+                return atom
+
+        raise ValueError(f"Could not find atom: {name}")
+
     def write_inConstr(self):
         if self.name in constants.AMINO_ACID_RESIDUES:
             return f"{ord(self.chain.name) - ord('A') + 1}.{self.inConstr_number}.*"

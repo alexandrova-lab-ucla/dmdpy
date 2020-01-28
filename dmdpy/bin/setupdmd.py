@@ -23,6 +23,7 @@ def main():
         sdj = setupDMDjob()
 
     except:
+        logger.exception("Check Error")
         logger.critical("Exception encountered, quiting")
         sys.exit(1)
 

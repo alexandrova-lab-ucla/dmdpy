@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 import dmdpy.utility.utilities as utilities
 import dmdpy.protein.protein as protein
 from dmdpy.utility.exceptions import ParameterError
+import dmdpy.utility.constants as constant
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,6 @@ class setupDMDjob:
             logger.exception("Invalid parameter specification")
             raise
 
-
         if pro is None:
             logger.debug("Checking for a pdb")
             files = [f for f in os.listdir('./') if os.path.isfile(os.path.join('./', f))]
@@ -94,8 +94,20 @@ class setupDMDjob:
             for f in files:
                 if os.path.splitext(f)[-1].lower() == ".pdb":
                     logger.debug(f"Found a pdb file to use: {f}")
+                    try:
+                        self._protein = utilities.load_pdb(f)
+
+                    except:
+                        continue
+                    break
             # We store the residue here and then we backtrack and figure out the correct atom to protonate later after
             # proper relabeling/renaming
+
+        else:
+            self._protein = pro
+
+        if self._protein is None:
+            raise ValueError("No Protein!")
 
         self._displacement = []
         if "Restrict Displacement" in self._raw_parameters.keys():
@@ -128,6 +140,11 @@ class setupDMDjob:
                     logger.exception("Could not find the atom!")
                     raise
 
+        # These holds all of the residues with weird protonation or deprotonation states
+        self._protonate = []
+        if "Custom protonation states" in self._raw_parameters.keys():
+            for item in self._raw_parameters["Custom protonation states"]:
+                self._protonate.append([self._protein.get_residue(item[:1]), item[2:]])
 
         logger.debug("Changing protein name to initial.pdb and writing out")
         self._protein.reformat_protein()
@@ -254,6 +271,42 @@ class setupDMDjob:
                     inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
 
                 # TODO Fix This for custom protonation states
+                for state in self._protonate:
+                    logger.debug(f"Adding protonation state: {state[0]} and {state[1]}")
+                    atom_id = ""
+                    #TODO try and except for weird atoms or residues if it cannot find it
+                    if len(state[1]) > 1:
+                        #Then we had a number specify
+                        logger.debug("Specified which atom specifically to use!")
+                        if state[1][0] == "protonate":
+                            atom_id = constant.PROTONATED[state[0].name][state[1][1]]
+
+                        elif state[1][0] == "deprotonate":
+                            atom_id = constant.DEPROTONATED[state[0].name][state[1][1]]
+
+                    else:
+                        if state[1][0] == "protonate":
+                            atom_id = constant.PROTONATED[state[0].name][0]
+
+                        elif state[1][0] == "deprotonate":
+                            atom_id = constant.DEPROTONATED[state[0].name][0]
+
+                    if atom_id == "":
+                        raise ValueError("Did not specify to protonate or deprotonate correctly")
+
+                    try:
+                        pro_atom = state[0].get_atom(atom_id[0])
+
+                    except ValueError:
+                        logger.exception("Could not find the correct atom to protonate or deprotonate in the residue")
+                        logger.warning(f"{state}")
+                        raise
+
+                    if state[1][0] == "protonate":
+                        inConstr_file.write(f"Protonate {pro_atom.write_inConstr()}\n")
+
+                    else:
+                        inConstr_file.write(f"Deprotonate {pro_atom.write_inConstr()}\n")
 
                 # for pro_atom in self._protonation_states:
                 #     if pro_atom[1].lower() == "protonate":
