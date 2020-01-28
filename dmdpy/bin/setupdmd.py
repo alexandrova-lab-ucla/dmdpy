@@ -6,6 +6,7 @@ import sys
 
 import dmdpy.utility.utilities as utilities
 from dmdpy.setupjob import setupDMDjob
+from dmdpy.utility.exceptions import ParameterError
 
 
 def main():
@@ -22,9 +23,33 @@ def main():
     try:
         sdj = setupDMDjob()
 
+    except OSError:
+        logger.exception("OSError encountered, likely an issue with moving files around")
+        logger.critical("If the issue persists, contact the developers")
+        sys.exit(1)
+
+    except ValueError as e:
+        if "dmdinput.json" in e:
+            logger.error("Error with the dmdinput.json file")
+            sys.exit(1)
+
+        elif "definition" in e:
+            logger.error("Please provide the correct parameter definition!")
+            sys.exit(1)
+
+        elif "No Protein" in e:
+            logger.error("No protein or pdb was provided")
+            sys.exit(1)
+
+        else:
+            logger.error("Unknown ValueError encountered")
+
+    except ParameterError:
+        logger.error("Please make sure your parameters are correct")
+        sys.exit(1)
+
     except:
-        logger.exception("Check Error")
-        logger.critical("Exception encountered, quiting")
+        logger.exception("Unknown exception encountered, quitting")
         sys.exit(1)
 
 

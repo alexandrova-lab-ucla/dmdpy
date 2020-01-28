@@ -39,6 +39,7 @@ def main():
 
     logger.debug("Passing parameters...")
     try:
+        logger.debug("Passing args to the function in utilities")
         utilities.make_movie(args.pdbfile, args.moviefile, args.outputFile)
 
     except OSError:

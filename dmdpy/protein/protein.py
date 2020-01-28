@@ -4,6 +4,9 @@
 import logging
 import pkg_resources
 import csv
+import os
+import numpy as np
+from subprocess import Popen, PIPE
 
 from dmdpy.utility import constants
 from dmdpy.protein.chain import Chain
@@ -13,15 +16,11 @@ __all__=[
     'Protein'
 ]
 
-#TODO Add a function to remove Hydrogens that were deprotonated or protonated, ie standard protonation states
-
 class Protein:
 
     __slots__ = ['chains', '_logger', 'non_residues', 'metals', 'name', 'sub_chain']
 
     def __init__(self, name: str, chains: [Chain]):
-
-        #TODO: add a flag that is enabled if reformat is called for the protein to speed up algorithm of finding atoms/residues
 
         self._logger = logging.getLogger(__name__)
 
@@ -156,6 +155,7 @@ class Protein:
             self.chains.append(self.sub_chain)
 
         self.relabel()
+        self.make_bond_table()
 
     def get_atom(self, identifier):
         for chain in self.chains:
@@ -187,10 +187,13 @@ class Protein:
         self._logger.error("Could not find the requested chain")
         raise ValueError
 
-    def write_pdb(self):
-        self._logger.debug(f"Writing out pdb: {self}")
+    def write_pdb(self, name=None):
+        if name is None:
+            name = self.name
+
+        self._logger.debug(f"Writing out pdb: {name}")
         try:
-            with open(self.name, 'w') as pdb:
+            with open(name, 'w') as pdb:
                 for chain in self.chains[:-1]:
                     for residue in chain.residues:
                         for atom in residue.atoms:
@@ -281,16 +284,57 @@ class Protein:
             for residue in chain.residues[1:-1]:
                 rename_residue(residue)
 
-    def atoms_near_metal(self, cutoff = 3.05):
+    def atoms_near_metal(self, metal, cutoff = 3.05):
         atom_list = []
-        for metal in self.metals:
-            for chain in self.chains:
-                for residue in chain.residues:
-                    for atom in residue.atoms:
-                        if atom.id in constants.HEAVY_ATOMS:
-                            if (atom.coords - metal.coords).norm() < 3.05:
-                                atom_list.append(atom)
+        for chain in self.chains[:-1]:
+            for residue in chain.residues:
+                for atom in residue.atoms:
+                    if atom.element in constants.HEAVY_ATOMS:
+                        if np.linalg.norm(atom.coords - metal.coords) < cutoff:
+                            atom_list.append(atom)
+
+        if not self.sub_chain.residues:
+            for residue in self.chains[-1].residues:
+                for atom in residue.atoms:
+                    if atom.element in constants.HEAVY_ATOMS:
+                        if np.linalg.norm(atom.coords - metal.coords) < cutoff:
+                            atom_list.append(atom)
 
         return atom_list
 
+    def make_bond_table(self):
+        self.write_pdb("bond.pdb")
 
+        with Popen(f"babel bond.pdb bond.mol2", stdin=PIPE, stdout=PIPE, stderr=PIPE,
+                   universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
+            while shell.poll() is None:
+                self._logger.debug(shell.stdout.readline().strip())
+                output = shell.stderr.readline().strip()
+                self._logger.debug(output)
+                if "1 molecule converted" in output:
+                    successful = True
+
+        if not successful:
+            self._logger.error("Could not create {residue.name} mol2 file!")
+            raise OSError("mol2_file")
+
+        atom_list = []
+        for chain in self.chains:
+            for residue in chain.residues:
+                for atom in residue.atoms:
+                    atom_list.append(atom)
+
+        with open("bond.mol2") as mol_file:
+            bond_section = False
+            for line in mol_file:
+                if "BOND" in line:
+                    bond_section = True
+
+                elif bond_section:
+                    line = line.split()
+                    atom_list[int(line[1])-1].add_bond(atom_list[int(line[2]) - 1])
+
+        self._logger.info("Succesfully created the bond lists for each atom")
+        self._logger.debug("Cleaning up files created")
+        os.remove("bond.pdb")
+        os.remove("bond.mol2")

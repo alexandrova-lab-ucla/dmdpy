@@ -30,11 +30,11 @@ DEPROTONATED = {
     "TYR": [("OH", "HO")],
     "TRP": [("NE1", "HE1")],
     "HIS": [("ND1", "HD1")],
-    "ARG": [("NH1", "2HH1")]# TODO Extend this for all of the possible hydrogens!!!
-
+    "ARG": [("NH1", "2HH1"), ("NH1", "1HH1"), ("NH2", "2HH2"), ("NH2", "1HH2"), ("NE", "HE")],
+    "LYS": [("NZ", "HZ1"), ("NZ", "HZ2"), ("NZ", "HZ3")]
 }
 
-HEAVY_ATOMS = ['n', 'o' 's', 'se']
+HEAVY_ATOMS = ['n', 'o', 's', 'se']
 
 #All metals through bismuth
 METALS = ('li','be','na','mg','al','k','ca','sc','ti','v','cr','mn','fe','co','ni','cu','zn','ga','rb','sr','y','zr','nb','mo','tc','ru','rh','pd','ag','cd','in','sn','cs','ba','la','ce','pr','nd','pm','sm','eu','gd','tb','dy','ho','er','tm','yb','lu','hf','ta','w','re','os','ir','pt','au','hg','tl','pb','bi')

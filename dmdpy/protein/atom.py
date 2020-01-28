@@ -10,7 +10,7 @@ __all__=[
 
 class Atom:
 
-    __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'number']
+    __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'number', 'bonds']
 
     def __init__(self, line: str = None, element: str = None, coords: np.array = None, id=None, number=None):
 
@@ -31,6 +31,7 @@ class Atom:
 
         self.residue = None
         self.chain = None
+        self.bonds = []
 
 
     def write_inConstr(self):
@@ -44,5 +45,9 @@ class Atom:
 
     def __str__(self):
         return f"{self.id} {self.coords} {self.element}"
+
+    def add_bond(self, atom):
+        self.bonds.append(atom)
+        atom.bonds.append(self)
 
 

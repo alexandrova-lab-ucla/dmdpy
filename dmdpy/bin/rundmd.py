@@ -19,6 +19,8 @@ def main():
 
     logger = logging.getLogger(__name__)
 
+    logger.debug("Logger initialized")
+
     # TODO have it receive argument for the number of cores, time to run, and a scratch directory
 
     try:

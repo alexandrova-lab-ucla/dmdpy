@@ -85,6 +85,7 @@ class calculation:
             raise
 
         # TODO check to see if we are doing titratable DMD-if so, create a titratable object and start interacting with that
+        # Have it expand the commands to a set of block commands that will always update the protonation state->ie calls the titr feature to reset the inConstr file and movie the necessary files around!!!!!!
 
         # TODO check for any exceptions raised from setupDMDjob
         if pro is None:
@@ -205,6 +206,8 @@ class calculation:
             if updated_parameters["titr"]["titr on"]:
                 # TODO check to see if we have a titratable object first and then decide if having this turned on is valid or not
                 logger.warning("Titratable feature cannot be turned on in the middle of a run")
+                # What we will have happen is the titr feature either just run the job, seperate from here
+                # Or we can have it update self._commands with the appropriate commands until it is done with all of the steps
 
             elif "Custom protonation states" in steps.keys():
                 logger.warning("Why are you trying to change the protonation state in the middle of DMD?")
@@ -216,7 +219,6 @@ class calculation:
             else:
                 # We can just run the job with no issues other than those raised from the above
                 self.run_dmd(updated_parameters, self._start_time, True)
-
 
             # Assuming we finished correctly, we pop off the last issue
             self._commands.pop(list(self._commands.keys())[0])
@@ -283,6 +285,10 @@ class calculation:
                 logger.addHandler(hdlr)
 
         logger.info("Finished Calculation")
+
+    def last_frame(self):
+        #TODO implement this, have it convert -> movie.pdb -> movie, as a protein and return that! then clean up the mess!!!!
+        pass
 
     def run_dmd(self, parameters, start_time: int, use_restart: bool):
         # Remake the start file with any changed parameters

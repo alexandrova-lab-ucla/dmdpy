@@ -80,7 +80,7 @@ class setupDMDjob:
 
         except ValueError:
             logger.exception("Missing a parameter definition!")
-            raise
+            raise ValueError("definition")
 
         except ParameterError:
             logger.exception("Invalid parameter specification")
@@ -308,12 +308,20 @@ class setupDMDjob:
                     else:
                         inConstr_file.write(f"Deprotonate {pro_atom.write_inConstr()}\n")
 
+                if self._raw_parameters["Restrict Metal Ligands"]:
+                    logger.debug("Restricting distance between atoms and metals!")
+                    for metal in self._protein.metals:
+                        logger.debug(f"Looking at metal: {metal}")
+                        atoms_near_metal = self._protein.atoms_near_metal(metal, 3.1)
+                        for atoms in atoms_near_metal:
+                            logger.debug(f"Freezing atom: {atoms} since too close to a metal")
+                            inConstr_file.write(f"Static {atoms.write_inConstr()}\n")
 
-                for atoms in self._protein.atoms_near_metal():
-                    logger.debug(f"Freezing atom: {atoms} since too close to a metal")
-                    #TODO need to find the atoms attached to each of these atoms and do a restrict displacement
-                    #make a mol2 file and get the bond list from here!!!!
-                    inConstr_file.write(f"Static {atoms.write_inConstr()}\n")
+                            for bonded_atoms in atoms.bonds:
+                                if bonded_atoms.element != "h" and bonded_atoms.element not in constant.METALS:
+                                    logger.debug(f"Restricting motion of atom {bonded_atoms} and atom {metal} by {0.05}")
+                                    inConstr_file.write(
+                                        f"AtomPairRel {bonded_atoms.write_inConstr()} {metal.write_inConstr()} -{0.05} +{0.05}\n")
 
                 for disp_atom in self._displacement:
                     logger.debug(
