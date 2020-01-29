@@ -334,3 +334,39 @@ class setupDMDjob:
             raise
 
         logger.debug("Finished making the inConstr file!")
+
+    def updated_parameters(self):
+        new_parameters = self._raw_parameters.copy()
+
+        # Update the custom protonation states
+        for new_state, state in zip(new_parameters["Custom protonation states"], self._protonate):
+            new_state[0] = state[0].chain.name
+            new_state[1] = state[0].residue.number
+            new_state[2] = state[1][0]
+            if len(new_state) == 4:
+                new_state[3] = state[1][1]
+
+        # Update the frozen atoms
+        for new_state, state in zip(new_parameters["Frozen atoms"]["Chains"], self._static["chains"]):
+            new_state = state.name
+
+        for new_state, state in zip(new_parameters["Frozen atoms"]["Residues"], self._static["residues"]):
+            new_state[0] = state.chain.name
+            new_state[1] = state.number
+
+        for new_state, state in zip(new_parameters["Frozen atoms"]["Atoms"], self._static["atoms"]):
+            new_state[0] = state.chain.name
+            new_state[1] = state.residue.number
+            new_state[2] = state.id
+
+        # Update the displacement atoms
+        for new_state, state in zip(new_parameters["Restrict Displacement"], self._displacement):
+            new_state[0][0] = state[0].chain.name
+            new_state[0][1] = state[0].residue.number
+            new_state[0][2] = state[0].id
+            new_state[1][0] = state[1].chain.name
+            new_state[1][1] = state[1].residue.number
+            new_state[1][2] = state[1].id
+            new_state[2] = state[2]
+
+        return new_parameters
