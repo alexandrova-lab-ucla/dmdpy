@@ -336,6 +336,7 @@ class setupDMDjob:
         logger.debug("Finished making the inConstr file!")
 
     def updated_parameters(self):
+        #TODO make sure that this is correct
         new_parameters = self._raw_parameters.copy()
 
         # Update the custom protonation states
