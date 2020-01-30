@@ -35,12 +35,16 @@ class Atom:
 
 
     def write_inConstr(self):
-        return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.inConstr_number}.{self.id.upper()}"
+        if self.residue.name in constants.AMINO_ACID_RESIDUES:
+            return f"{ord(self.chain.name)-ord('A')+1}.{self.residue.inConstr_number}.{self.id.upper()}"
+
+        else:
+            return f"{ord(self.chain.name) - ord('A') + self.residue.inConstr_number}.1.{self.id.upper()}"
 
     def pdb_line(self):
         return '{:<6}{:>5} {:<4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(
             'ATOM' if self.residue.name in constants.AMINO_ACID_RESIDUES else "HETATM",
-            self.number, self.id if len(self.id) > 3 else f" {self.id}", self.residue.name, self.chain.name, self.residue.number,
+            self.number, self.id if len(self.id) > 3 else f" {self.id}", self.residue.name, self.residue.chain.name, self.residue.number,
             self.coords[0], self.coords[1], self.coords[2], self.element.capitalize())
 
     def __str__(self):
@@ -49,5 +53,3 @@ class Atom:
     def add_bond(self, atom):
         self.bonds.append(atom)
         atom.bonds.append(self)
-
-

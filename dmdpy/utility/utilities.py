@@ -8,7 +8,7 @@ import os
 from logging.config import dictConfig
 import subprocess
 from subprocess import Popen, PIPE
-
+from random import shuffle
 
 from dmdpy.protein import atom, chain, residue, protein
 from dmdpy.utility import constants
@@ -434,13 +434,13 @@ def make_start_file(parameters: dict, start_time: int =0):
 def make_state_file(parameters: dict, pdbName):
     logger.debug("Calling complex.linux")
     try:
-        # TODO: There is an issue here with complex.linux not actually running
+        # There is an issue here with complex.linux not actually running
         # It is coming from the mol2 of the substrate...interesting...
         # There is a Segmentation fault (core dumped) error that occurs, asking Jack if he knows what the issue is
         # Jack thinks it is the segfault mike wrote in his HACK ALERT section
         # I have emailed the Dohkyan group regarding it...its only for certain pdbs...
         with Popen(
-                f"complex-1.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                f"/home/mhennefarth/Programs/dmd/bin/complex.linux -P /home/mhennefarth/Programs/dmd/parameter -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
             while shell.poll() is None:
                 logger.debug(shell.stdout.readline().strip())
@@ -451,7 +451,7 @@ def make_state_file(parameters: dict, pdbName):
             logger.warning("Going to reorder the bond list in the mol2 files!")
             attempts = 1
 
-        while not os.path.isfile("state") and attempts < 3:
+        while not os.path.isfile("state") and attempts < 100:
             logger.warning(f"complex fix attempt {attempts}")
             mol2_files = []
             with open("topparam") as topparm:
@@ -476,7 +476,7 @@ def make_state_file(parameters: dict, pdbName):
                             save.append(line)
 
                     # now we reorder based upon the attempt!
-                    bonds.sort(key=lambda x: int(x[attempts]))
+                    shuffle(bonds)
 
                 with open(mol2, 'w+') as mf:
                     for line in save:
@@ -485,12 +485,12 @@ def make_state_file(parameters: dict, pdbName):
                     for bond in bonds:
                         mf.write(f"{bond[0]}\t{bond[1]}\t{bond[2]}\t{bond[3]}\n")
 
-                with Popen(
-                        f"complex-1.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
-                        stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True,
-                        env=os.environ) as shell:
-                    while shell.poll() is None:
-                        logger.debug(shell.stdout.readline().strip())
+            with Popen(
+                    f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                    stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True,
+                    env=os.environ) as shell:
+                while shell.poll() is None:
+                    logger.debug(shell.stdout.readline().strip())
 
             attempts += 1
 
@@ -514,6 +514,7 @@ def make_movie(initial_pdb, movie_file, output_pdb):
     """
     try:
         logger.debug("Creating movie file")
+        print(initial_pdb)
         with Popen(
                 f"complex_M2P.linux {dmd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,

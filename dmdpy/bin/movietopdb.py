@@ -40,12 +40,13 @@ def main():
     logger.debug("Passing parameters...")
     try:
         logger.debug("Passing args to the function in utilities")
-        utilities.make_movie(args.pdbfile, args.moviefile, args.outputFile)
+        utilities.make_movie(args.pdbfile[0], args.moviefile[0], args.outputFile[0])
 
     except OSError:
         logger.error("Error creating movie file")
         sys.exit(1)
 
+    #TODO check for the output file actually...
     logger.info("Successfully converted movie file!")
     logger.debug("Finished")
 

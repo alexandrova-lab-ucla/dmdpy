@@ -35,6 +35,7 @@ class Protein:
 
     def reformat_protein(self):
         # This is the BIG BIG BIG function that fixes EVERYTHING of a pdb for DMD
+        # Don't question why it does things, it needs to
         res_renum = 1
         chain_let = 'A'
 
@@ -126,7 +127,7 @@ class Protein:
                     metal.element = 'Zn'
 
                 metal_residue = Residue(name=name, number=res_num)
-                self._logger.debug(f"Adding residue {metal_residue} to substrate chain")
+                self._logger.debug(f"Adding metal {metal_residue} as a residue to substrate chain")
                 self.sub_chain.add_residue(metal_residue)
                 metal_residue.add_atom(metal)
 
@@ -262,7 +263,7 @@ class Protein:
                     break # This is the correct naming scheme!
 
             else:
-                raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number}")
+                raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number} {atom}")
 
             #Loop over all of the atoms
             for atom in residue.atoms:

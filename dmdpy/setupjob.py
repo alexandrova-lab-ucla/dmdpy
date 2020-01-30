@@ -114,11 +114,13 @@ class setupDMDjob:
             for atom_pair in self._raw_parameters["Restrict Displacement"]:
                 self._displacement.append([self._protein.get_atom(atom_pair[0]), self._protein.get_atom(atom_pair[1]), atom_pair[2]])
 
-        self._static = {"chains": [], "residues": [], "atoms": []}
+        self._static = []
         if "Frozen atoms" in self._raw_parameters.keys():
             for chain in self._raw_parameters["Frozen atoms"]["Chains"]:
                 try:
-                    self._static["chains"].append(self._protein.get_chain(chain))
+                    protein_chain =self._protein.get_chain(chain)
+                    for residue in protein_chain.residues:
+                        self._static.extend(residue.atoms)
 
                 except ValueError:
                     logger.exception("Could not find the chain!")
@@ -126,7 +128,10 @@ class setupDMDjob:
 
             for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
                 try:
-                    self._static["residues"].append(self._protein.get_residue(residue))
+                    #TODO check to see if the residue HAS a metal in it...if so it will not work!!!!!!
+                    #self._static["residues"].append(self._protein.get_residue(residue))
+                    protein_residue = self._protein.get_residue(residue)
+                    self._static.extend(protein_residue.atoms)
 
                 except ValueError:
                     logger.exception("Could not find the residue!")
@@ -134,7 +139,7 @@ class setupDMDjob:
 
             for atom in self._raw_parameters["Frozen atoms"]["Atoms"]:
                 try:
-                    self._static["atoms"].append(self._protein.get_atom(atom))
+                    self._static.append(self._protein.get_atom(atom))
 
                 except ValueError:
                     logger.exception("Could not find the atom!")
@@ -242,16 +247,17 @@ class setupDMDjob:
     def make_inConstr(self):
         try:
             with open('inConstr', 'w') as inConstr_file:
-                try:
-                    with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
-                               stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
-                               env=os.environ) as shell:
-                        while shell.poll() is None:
-                            if len(shell.stderr.readline().strip()) > 0:
-                                logger.debug(shell.stderr.readline().strip())
-                except OSError:
-                    logger.exception("Error calling genESC.linux")
-                    raise
+                # This is apparently not needed
+                # try:
+                #     with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
+                #                stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
+                #                env=os.environ) as shell:
+                #         while shell.poll() is None:
+                #             if len(shell.stderr.readline().strip()) > 0:
+                #                 logger.debug(shell.stderr.readline().strip())
+                # except OSError:
+                #     logger.exception("Error calling genESC.linux")
+                #     raise
 
                 if self._raw_parameters["Freeze Non-Residues"]:
                     logger.debug("Freeze Non-residues turned on, freezing residues")
@@ -259,15 +265,7 @@ class setupDMDjob:
                         logger.debug(f"Freezing residue: {residue}")
                         inConstr_file.write(f"Static {residue.write_inConstr()}\n")
 
-                for static_chain in self._static["chains"]:
-                    logger.debug(f"Freezing chain: {static_chain}")
-                    inConstr_file.write(f"Static {static_chain.write_inConstr()}\n")
-
-                for static_residue in self._static["residues"]:
-                    logger.debug(f"Freezing residue: {static_residue}")
-                    inConstr_file.write(f"Static {static_residue.write_inConstr()}\n")
-
-                for static_atom in self._static["atoms"]:
+                for static_atom in self._static:
                     logger.debug(f"Freezing atom: {static_atom}")
                     inConstr_file.write(f"Static {static_atom.write_inConstr()}\n")
 

@@ -32,6 +32,9 @@ class Residue:
         atom.chain = self.chain
         self.atoms.append(atom)
 
+    def set_chain(self, chain):
+        pass
+
     def get_atom(self, name):
         for atom in self.atoms:
             if atom.id == name:
