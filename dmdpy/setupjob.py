@@ -97,7 +97,8 @@ class setupDMDjob:
                     try:
                         self._protein = utilities.load_pdb(f)
 
-                    except:
+                    except IOError:
+                        logger.debug("Ran into an issue with loading the pdb")
                         continue
                     break
             # We store the residue here and then we backtrack and figure out the correct atom to protonate later after
@@ -128,8 +129,6 @@ class setupDMDjob:
 
             for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
                 try:
-                    #TODO check to see if the residue HAS a metal in it...if so it will not work!!!!!!
-                    #self._static["residues"].append(self._protein.get_residue(residue))
                     protein_residue = self._protein.get_residue(residue)
                     self._static.extend(protein_residue.atoms)
 

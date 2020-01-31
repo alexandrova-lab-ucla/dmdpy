@@ -29,15 +29,15 @@ def main():
         sys.exit(1)
 
     except ValueError as e:
-        if "dmdinput.json" in e:
+        if "dmdinput.json" in str(e):
             logger.error("Error with the dmdinput.json file")
             sys.exit(1)
 
-        elif "definition" in e:
+        elif "definition" in str(e):
             logger.error("Please provide the correct parameter definition!")
             sys.exit(1)
 
-        elif "No Protein" in e:
+        elif "No Protein" in str(e):
             logger.error("No protein or pdb was provided")
             sys.exit(1)
 

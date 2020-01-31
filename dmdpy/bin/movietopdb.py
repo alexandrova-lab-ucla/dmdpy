@@ -25,7 +25,7 @@ def main():
 
     parser.add_argument("pdbfile", type=str, nargs=1, help="initial pdb file (typically initial.pdb)")
     parser.add_argument("moviefile", type=str, nargs=1, help="Movie file from piDMD")
-    parser.add_argument("-o", dest="outputFile", default="movie.pdb", type=str, nargs=1, required=False, help="Output for movie file")
+    parser.add_argument("-o", dest="outputFile", default=["movie.pdb"], type=str, nargs=1, required=False, help="Output for movie file")
 
     args = parser.parse_args()
 

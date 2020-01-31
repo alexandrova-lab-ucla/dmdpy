@@ -292,22 +292,28 @@ def load_pdb(file: str):
     try:
         with open(file, 'r') as pdb:
             for line in pdb:
-                if "ATOM" in line or "HETATM" in line:
+                if "ATOM" == line[0:4] or "HETATM" == line[0:6]:
                     tmpAtom = atom.Atom(line)
                     if chainLet != line[21:22]:
                         chainLet = line[21:22]
                         chains.append(chain.Chain(chainLet))
+                        resNum = 0
 
                     if resNum != int(line[22:26]):
                         resNum = int(line[22:26])
                         chains[-1].add_residue(residue.Residue(line))
 
+                    print(line)
                     chains[-1].residues[-1].add_atom(tmpAtom)
                 lineNumber += 1
     except IOError:
         logger.exception(f"Error opening {file}")
         raise
+    except ValueError:
+        logger.exception("Something bad happened!")
+        raise
 
+    logger.debug("Successfully loaded in the file!")
     return protein.Protein(file, chains)
 
 
