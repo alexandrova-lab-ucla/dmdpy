@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="dmdpy",
     version="1.0.0",
-    author=["Matthew Hennefarth", "David Reilley"],
+    author=["Matthew R. Hennefarth", "David Reilley"],
     packages=find_packages(),
     package_data={'': ['.json', '*.j2', '*.config']},
     entry_points={
