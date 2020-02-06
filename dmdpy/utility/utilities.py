@@ -303,7 +303,6 @@ def load_pdb(file: str):
                         resNum = int(line[22:26])
                         chains[-1].add_residue(residue.Residue(line))
 
-                    print(line)
                     chains[-1].residues[-1].add_atom(tmpAtom)
                 lineNumber += 1
     except IOError:
@@ -446,7 +445,7 @@ def make_state_file(parameters: dict, pdbName):
         # Jack thinks it is the segfault mike wrote in his HACK ALERT section
         # I have emailed the Dohkyan group regarding it...its only for certain pdbs...
         with Popen(
-                f"/home/mhennefarth/Programs/dmd/bin/complex.linux -P /home/mhennefarth/Programs/dmd/parameter -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
             while shell.poll() is None:
                 logger.debug(shell.stdout.readline().strip())

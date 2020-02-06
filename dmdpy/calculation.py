@@ -22,6 +22,8 @@ __all__ = [
 
 class calculation:
 
+    __slots__=["_submit_directory", "_scratch_directory", "_config", "_cores", "_time_to_run", "_timer_went_off", "_dmd_config", "_start_time", "_parameter_file", "_raw_parameters", "_commands", "_src_files"]
+
     def __init__(self, cores: int = 1, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
         logger.info("Beginning DMD calculation")
 

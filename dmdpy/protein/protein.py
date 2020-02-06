@@ -119,8 +119,11 @@ class Protein:
                     raise ValueError
 
                 if len(name) != 3:
-                    self._logger.error(f"The name for this is too long: {metal} with name: {name}")
-                    raise ValueError
+                    if metal_num > 35:
+                        self._logger.error(f"The name for this is too long: {metal} with name: {name}")
+                        raise ValueError
+
+                    name = metal.element.upper() + f"{chr(metal_num-10 + ord('A'))}"
 
                 # DMD does not know how to handle any other metal but zinc
                 if metal.element.lower() != "zn":
