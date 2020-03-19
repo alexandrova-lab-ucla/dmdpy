@@ -30,6 +30,23 @@ __all__=[
 logger = logging.getLogger(__name__)
 
 
+def create_config():
+    # TODO verify the accuracy of the config file!
+    logger.debug(f"Creating .dmdpy in the home directory: {os.path.expanduser('~')}")
+    home = os.path.expanduser('~')
+
+    try:
+        os.mkdir(os.path.join(home, '.dmdpy'))
+
+    except FileExistsError:
+        logger.debug(".dmdpy directory already exists, continuing")
+
+    logger.debug("Placing default dmdpy_config.json in the .dmdpy directory")
+    shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json'), os.path.join(home, '.dmdpy'))
+    shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'logger_config.json'), os.path.join(home, '.dmdpy'))
+
+    logger.info(f"Please ensure that {os.path.join(home, '.dmdpy')} has the correct values")
+
 def load_logger_config():
     """Loads in the Logger Config File"""
 
@@ -396,22 +413,6 @@ def make_mol2(res: residue, reformat: bool=True):
     os.remove(f"{res.name}.pdb")
     logger.info(f"Successfuly made: {res.name} mol2")
 
-def create_config():
-    # TODO verify the accuracy of the config file!
-    logger.debug(f"Creating .dmdpy in the home directory: {os.path.expanduser('~')}")
-    home = os.path.expanduser('~')
-
-    try:
-        os.mkdir(os.path.join(home, '.dmdpy'))
-
-    except FileExistsError:
-        logger.debug(".dmdpy directory already exists, continuing")
-
-    logger.debug("Placing default dmdpy_config.json in the .dmdpy directory")
-    shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json'), os.path.join(home, '.dmdpy'))
-    shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'logger_config.json'), os.path.join(home, '.dmdpy'))
-
-    logger.info(f"Please ensure that {os.path.join(home, '.dmdpy')} has the correct values")
 
 def make_start_file(parameters: dict, start_time: int =0):
     logger.debug("Making the Start File")
