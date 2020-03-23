@@ -40,6 +40,7 @@ class Protein:
         chain_let = 'A'
 
         chain_num = 0
+        self._logger.debug("Looping over the chains")
         while chain_num < len(self.chains):
             atom_renum = 1
             residue_num = 0
@@ -74,6 +75,7 @@ class Protein:
 
                     res_renum += 1
                     residue_num += 1
+                    self._logger.debug("Finished renumbering")
 
             if not self.chains[chain_num].residues:
                 self._logger.debug(f"Removing chain: {self.chains[chain_num]}")
@@ -87,6 +89,7 @@ class Protein:
         #Now we add in the non-residues and the metals into a new chain!
         res_num = 1
         if self.non_residues or self.metals:
+            self._logger.debug("Rearranging the non-residue substrates and metals")
             self._logger.debug("Creating a substrate/metal chain")
             atom_num = 1
 
@@ -158,7 +161,9 @@ class Protein:
             self._logger.debug("Adding substrate chain to master chain")
             self.chains.append(self.sub_chain)
 
+        self._logger.debug("Relabeling the protein")
         self.relabel()
+        self._logger.debug("Making the bond table for the protein")
         self.make_bond_table()
 
     def get_atom(self, identifier):
@@ -241,6 +246,8 @@ class Protein:
                 else:
                     atom_label_dict[row[0]] = [row[1:]]
 
+        self._logger.debug("Loaded in the atom_label.csv file")
+
         def rename_residue(residue, terminus: str = None):
 
             # Checks for any amino acids/molecules not in the csv file first!
@@ -249,17 +256,21 @@ class Protein:
                 return
 
             #Find the column that has the current naming scheme present
+            self._logger.debug("Checking for the scheme id")
             for schemeid in range(len(schemenames)):
                 scheme = []
                 for namelist in atom_label_dict[residue.name]:
+                    self._logger.debug(f"Adding scheme name: {namelist[schemeid]}")
                     scheme.append(namelist[schemeid])
 
                 if terminus is not None:
                     for namelist in atom_label_dict[terminus]:
                         scheme.append(namelist[schemeid])
+
                 # Check to see if this is the naming scheme
                 for atom in residue.atoms:
                     if atom.id not in scheme:
+                        self._logger.debug(f"Atom: {atom.id} not in scheme: {scheme}")
                         break
 
                 else:
@@ -269,6 +280,7 @@ class Protein:
                 raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number} {atom}")
 
             #Loop over all of the atoms
+            self._logger.debug("Found the scheme id")
             for atom in residue.atoms:
                 old_atomid = scheme.index(atom.id)
                 if terminus is not None:
@@ -286,6 +298,7 @@ class Protein:
             cterm = chain.residues[-1]
 
             for residue in chain.residues[1:-1]:
+                self._logger.debug(f"Relabeling residue: {residue.name} {residue.number}")
                 rename_residue(residue)
 
     def atoms_near_metal(self, metal, cutoff = 3.05):

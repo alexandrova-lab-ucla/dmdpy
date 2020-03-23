@@ -97,7 +97,7 @@ def load_dmd_config():
 
     try:
         logger.debug("Loading in the dmd_config parameters")
-        with open(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json')) as logger_config:
+        with open(path_to_config) as logger_config:
             config = json.load(logger_config)
 
         return config
@@ -491,6 +491,7 @@ def make_state_file(parameters: dict, pdbName):
                     for bond in bonds:
                         mf.write(f"{bond[0]}\t{bond[1]}\t{bond[2]}\t{bond[3]}\n")
 
+            logger.debug(f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr")
             with Popen(
                     f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                     stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True,

@@ -43,6 +43,7 @@ def main():
 
         else:
             logger.error("Unknown ValueError encountered")
+            raise
 
     except ParameterError:
         logger.error("Please make sure your parameters are correct")
