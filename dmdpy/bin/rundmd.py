@@ -25,7 +25,7 @@ def main():
 
     try:
         logger.debug("Attempting to begin the calculation")
-        c = dmdpy.calculation(cores=8)
+        c = dmdpy.calculation(cores=1)
 
     except:
         logger.exception("Check the error")

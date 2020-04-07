@@ -7,6 +7,7 @@ import json
 import signal
 import subprocess
 import sys
+import math
 from subprocess import Popen, PIPE
 
 import dmdpy.protein.protein as protein
@@ -22,7 +23,9 @@ __all__ = [
 
 class calculation:
 
-    __slots__=["_submit_directory", "_scratch_directory", "_config", "_cores", "_time_to_run", "_timer_went_off", "_dmd_config", "_start_time", "_parameter_file", "_raw_parameters", "_commands", "_src_files"]
+    __slots__=["_submit_directory", "_scratch_directory", "_config", "_cores",
+            "_time_to_run", "_timer_went_off", "_dmd_config", "_start_time",
+            "_parameter_file", "_raw_parameters", "_commands", "_src_files", "_average_energy"]
 
     def __init__(self, cores: int = 1, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
         logger.info("Beginning DMD calculation")
@@ -36,6 +39,7 @@ class calculation:
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
         self._start_time = 0
+        self._average_energy = None
 
         # Want to make sure that we make the scratch directory!!
         try:
@@ -314,6 +318,36 @@ class calculation:
         except OSError:
             logger.exception("Error calling pdmd.linux")
             raise
+
+    def get_average_energry(self):
+        if self._average_energy is None:
+        
+            if not os.path.isfile(self._parameters["Echo File"]):
+                logger.error(f"Echo file does not exist {self._parameters['Echo File']}")
+                raise FileNotFoundError("Echo File")
+
+            energies = []
+
+            with open(self._parameters["Echo File"], 'r') as echo:
+                for line in echo:
+                    if line[0] == "#":
+                        continue
+
+                    line = line.split()
+                    energies.append(float(line[3]))
+
+            ave = sum(energies)/len(energies)
+
+            stdev = 0
+            for e in energies:
+                stdev += (e - ave)**2
+
+            stdev /= (len(energies)-1)
+            stdev = math.sqrt(stdev)
+
+            self._average_energy = [ave, stdev]
+
+        return self._average_energy
 
     def calculation_alarm_handler(self, signum, frame):
         """

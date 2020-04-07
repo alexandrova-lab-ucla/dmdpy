@@ -24,7 +24,8 @@ __all__=[
     'make_state_file',
     'make_movie',
     'setup_dmd_environ',
-    'valid_parameters'
+    'valid_parameters',
+    'load_movie'
 ]
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ dmd_config = load_dmd_config()
 def setup_dmd_environ():
     """ setups of an os.environ so that DMD can be run """
     logger.debug("Setting up DMD Environment")
-    os.environ["PATH"] += os.pathsep + dmd_config["PATHS"]["DMD_DIR"]
+    os.environ["PATH"] =  dmd_config["PATHS"]["DMD_DIR"] + os.pathsep + os.environ["PATH"]
     return os.environ
 
 def valid_parameters(parameters: dict):
@@ -439,6 +440,7 @@ def make_start_file(parameters: dict, start_time: int =0):
 
 def make_state_file(parameters: dict, pdbName):
     logger.debug("Calling complex.linux")
+    print(dmd_config['PATHS']["parameters"])
     try:
         # There is an issue here with complex.linux not actually running
         # It is coming from the mol2 of the substrate...interesting...
@@ -446,12 +448,12 @@ def make_state_file(parameters: dict, pdbName):
         # Jack thinks it is the segfault mike wrote in his HACK ALERT section
         # I have emailed the Dohkyan group regarding it...its only for certain pdbs...
         with Popen(
-                f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                f"{os.path.join(dmd_config['PATHS']['DMD_DIR'], 'complex.linux')} -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
             while shell.poll() is None:
                 logger.debug(shell.stdout.readline().strip())
 
-        attempts = 3
+        attempts = 100
         if not os.path.isfile("state"):
             logger.warning("Could not make state file first time around, could be a segfault error")
             logger.warning("Going to reorder the bond list in the mol2 files!")
@@ -491,9 +493,8 @@ def make_state_file(parameters: dict, pdbName):
                     for bond in bonds:
                         mf.write(f"{bond[0]}\t{bond[1]}\t{bond[2]}\t{bond[3]}\n")
 
-            logger.debug(f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr")
             with Popen(
-                    f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                    f"{os.path.join(dmd_config['PATHS']['DMD_DIR'], 'complex.linux')} -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                     stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True,
                     env=os.environ) as shell:
                 while shell.poll() is None:
@@ -531,3 +532,53 @@ def make_movie(initial_pdb, movie_file, output_pdb):
     except OSError:
         logger.exception("Error calling complex_M2P.linux")
         raise
+
+def load_movie(movie_file:str):
+    if not os.path.isfile(movie_file):
+        logger.error(f"File does not exist: {movie_file}")
+        raise ValueError(movie_file)
+
+    #ENDMDL is what seperates the proteins in the movie file
+    proteins = []
+    try:
+        with open(movie_file, 'r') as mf:
+            chains = []
+            resNum = 0
+            chainLet = ""
+
+            protein_number = 0
+
+            for line in mf:
+                try:
+                    if "ATOM" == line[0:4] or "HETATM" == line[0:6]:
+                        tmpAtom = atom.Atom(line)
+                        if chainLet != line[21:22]:
+                            chainLet = line[21:22]
+                            chains.append(chain.Chain(chainLet))
+                            resNum = 1
+
+                        if resNum != int(line[22:26]):
+                            resNum = int(line[22:26])
+                            chain[-1].add_residue(residue.Residue(line))
+
+                        chains[-1].add_residue(residue.Residue(line))
+                
+                    elif "ENDMDL" in line:
+                        proteins.append(protein.Protein(f"{movie_file.split('.')[0]}_{protein_number}", chains))   
+                        chains = []
+                        resNum = 0
+                        chainLet = ""
+                        protein_number += 1
+
+                except ValueError:
+                    logger.exception(f"Error reading in model {protein_number} in {movie_file}")
+                    raise
+
+    except IOError:
+        logger.exception(f"Error opening {file}")
+        raise
+
+    logger.debug("Successfully loaded in the file!")
+    return proteins
+
+
