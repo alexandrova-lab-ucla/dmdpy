@@ -355,3 +355,68 @@ class Protein:
         self._logger.debug("Cleaning up files created")
         os.remove("bond.pdb")
         os.remove("bond.mol2")
+
+    def center(self):
+        cen = np.array([0.0, 0.0, 0.0])
+        num_atoms = 0
+
+        for chain in self.chains:
+            for residue in chain.residues:
+                for atom in residue.atoms:
+                    cen += atom.coords
+                    num_atoms += 1
+
+        try:
+            cen = cen / num_atoms
+        
+        except ZeroDivisionError:
+            self._logger.error("No atoms, cannot get center")
+            raise
+        
+        return cen
+
+    def aa_rmsd(self, pro):
+        
+        #Makes it easier to work with this sort of stuff
+        this_atoms = []
+        for chain in self.chains:
+            for residue in chain.residues:
+                this_atoms.extend(residue.atoms)
+
+        this_center = self.center()
+        this_coords = [a.coords.copy() - this_center for a in this_atoms]
+        this_coords = np.array(this_coords)
+
+        other_atoms = []
+        for chain in pro.chains:
+            for residue in chain.residues:
+                other_atoms.extend(residue.atoms)
+
+        other_center = pro.center()
+        other_coords = [a.coords.copy() - other_center for a in other_atoms]
+        other_coords = np.array(other_coords)
+
+
+        #Now the coords have been centered, now we can start the rotation
+        assert(len(this_coords) == len(other_coords))
+        n_vec = np.shape(this_coords)[0]
+
+        h = np.dot(np.transpose(this_coords), other_coords)
+        v, s, w = np.linalg.svd(h)
+
+        is_reflection = (np.linalg.det(v) * np.linalg.det(w)) < 0.0
+
+        if is_reflection:
+            s[-1] = -s[-1]
+
+        E0 = sum(sum(this_coords*this_coords)) + sum(sum(other_coords*other_coords))
+
+        rmsd_sq = (E0-2.0*sum(s)) / float(n_vec)
+        rmsd_sq = max([rmsd_sq, 0.0])
+
+        rmsd = np.sqrt(rmsd_sq)
+        return rmsd
+
+
+
+
