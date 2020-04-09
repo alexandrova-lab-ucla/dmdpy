@@ -440,7 +440,6 @@ def make_start_file(parameters: dict, start_time: int =0):
 
 def make_state_file(parameters: dict, pdbName):
     logger.debug("Calling complex.linux")
-    print(dmd_config['PATHS']["parameters"])
     try:
         # There is an issue here with complex.linux not actually running
         # It is coming from the mol2 of the substrate...interesting...
@@ -522,9 +521,8 @@ def make_movie(initial_pdb, movie_file, output_pdb):
     """
     try:
         logger.debug("Creating movie file")
-        print(initial_pdb)
         with Popen(
-                f"complex_M2P.linux {dmd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
+                f"{os.path.join(dmd_config['PATHS']['DMD_DIR'], 'complex_M2P.linux')} {dmd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
                 env=os.environ) as shell:
             while shell.poll() is None:
@@ -555,16 +553,22 @@ def load_movie(movie_file:str):
                         if chainLet != line[21:22]:
                             chainLet = line[21:22]
                             chains.append(chain.Chain(chainLet))
-                            resNum = 1
+                            resNum = 0
 
                         if resNum != int(line[22:26]):
                             resNum = int(line[22:26])
-                            chain[-1].add_residue(residue.Residue(line))
+                            chains[-1].add_residue(residue.Residue(line))
+               
+                        chains[-1].residues[-1].add_atom(tmpAtom)
 
-                        chains[-1].add_residue(residue.Residue(line))
-                
                     elif "ENDMDL" in line:
-                        proteins.append(protein.Protein(f"{movie_file.split('.')[0]}_{protein_number}", chains))   
+                        if chains:
+                            proteins.append(protein.Protein(f"{movie_file.split('.')[0]}_{protein_number:0>4d}", chains.copy()))   
+
+                        else:
+                            logger.warn("Empty chain while loading in movie")
+                            protein_number -= 1
+
                         chains = []
                         resNum = 0
                         chainLet = ""

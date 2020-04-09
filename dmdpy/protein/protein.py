@@ -33,7 +33,7 @@ class Protein:
 
         self._logger.debug(f"Created protein {str(self)}")
 
-    def reformat_protein(self):
+    def reformat_protein(self, relabel_protein=True):
         # This is the BIG BIG BIG function that fixes EVERYTHING of a pdb for DMD
         # Don't question why it does things, it needs to
         res_renum = 1
@@ -161,8 +161,10 @@ class Protein:
             self._logger.debug("Adding substrate chain to master chain")
             self.chains.append(self.sub_chain)
 
-        self._logger.debug("Relabeling the protein")
-        self.relabel()
+        if relabel_protein:
+            self._logger.debug("Relabeling the protein")
+            self.relabel()
+        
         self._logger.debug("Making the bond table for the protein")
         self.make_bond_table()
 
@@ -322,6 +324,8 @@ class Protein:
     def make_bond_table(self):
         self.write_pdb("bond.pdb")
 
+        successful = False
+
         with Popen(f"babel bond.pdb bond.mol2", stdin=PIPE, stdout=PIPE, stderr=PIPE,
                    universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
             while shell.poll() is None:
@@ -386,6 +390,7 @@ class Protein:
         this_center = self.center()
         this_coords = [a.coords.copy() - this_center for a in this_atoms]
         this_coords = np.array(this_coords)
+
 
         other_atoms = []
         for chain in pro.chains:

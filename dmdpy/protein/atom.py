@@ -10,7 +10,7 @@ __all__=[
 
 class Atom:
 
-    __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'number', 'bonds']
+    __slots__ = ['element', 'coords', 'id', 'residue', 'chain', 'number', 'bonds', 'freeze']
 
     def __init__(self, line: str = None, element: str = None, coords: np.array = None, id=None, number=None):
 
@@ -31,6 +31,7 @@ class Atom:
 
         self.residue = None
         self.chain = None
+        self.freeze = False
         self.bonds = []
 
 
@@ -41,6 +42,10 @@ class Atom:
         else:
             return f"{ord(self.chain.name) - ord('A') + self.residue.inConstr_number}.1.{self.id.upper()}"
 
+    def coord_line(self):
+        return f"    {self.coords[0] * constants.A_TO_BOHR:.5f} {self.coords[1] * constants.A_TO_BOHR:.5f} {self.coords[2] * constants.A_TO_BOHR:.5f} {self.element}{' f' if self.freeze else ''}\n"
+
+
     def pdb_line(self):
         return '{:<6}{:>5} {:<4} {} {}{:>4}    {:>8.3f}{:>8.3f}{:>8.3f}  1.00  0.00          {:>2}\n'.format(
             'ATOM' if self.residue.name in constants.AMINO_ACID_RESIDUES else "HETATM",
@@ -49,6 +54,9 @@ class Atom:
 
     def __str__(self):
         return f"{self.id} {self.coords} {self.element}"
+
+    def label(self):
+        return f"{self.chain.name}:{self.residue.number}:{self.id}"
 
     def add_bond(self, atom):
         self.bonds.append(atom)

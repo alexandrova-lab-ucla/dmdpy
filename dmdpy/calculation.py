@@ -25,7 +25,7 @@ class calculation:
 
     __slots__=["_submit_directory", "_scratch_directory", "_config", "_cores",
             "_time_to_run", "_timer_went_off", "_dmd_config", "_start_time",
-            "_parameter_file", "_raw_parameters", "_commands", "_src_files", "_average_energy"]
+            "_parameter_file", "_raw_parameters", "_commands", "_src_files" ]
 
     def __init__(self, cores: int = 1, run_dir: str='./', time=-1, pro: protein.Protein=None, parameters: dict=None):
         logger.info("Beginning DMD calculation")
@@ -39,7 +39,6 @@ class calculation:
         self._timer_went_off = False
         self._dmd_config = utilities.load_dmd_config()
         self._start_time = 0
-        self._average_energy = None
 
         # Want to make sure that we make the scratch directory!!
         try:
@@ -292,10 +291,6 @@ class calculation:
 
         logger.info("Finished Calculation")
 
-    def last_frame(self):
-        #TODO implement this, have it convert -> movie.pdb -> movie, as a protein and return that! then clean up the mess!!!!
-        pass
-
     def run_dmd(self, parameters, start_time: int, use_restart: bool):
         # Remake the start file with any changed parameters
         utilities.make_start_file(parameters, start_time)
@@ -319,35 +314,33 @@ class calculation:
             logger.exception("Error calling pdmd.linux")
             raise
 
-    def get_average_energry(self):
-        if self._average_energy is None:
+    @staticmethod
+    def get_average_energy(echo_file):
         
-            if not os.path.isfile(self._parameters["Echo File"]):
-                logger.error(f"Echo file does not exist {self._parameters['Echo File']}")
-                raise FileNotFoundError("Echo File")
+        if not os.path.isfile(echo_file):
+            logger.error(f"Echo file does not exist: {echo_file}")
+            raise FileNotFoundError("Echo File")
 
-            energies = []
+        energies = []
 
-            with open(self._parameters["Echo File"], 'r') as echo:
-                for line in echo:
-                    if line[0] == "#":
-                        continue
+        with open(echo_file, 'r') as echo:
+            for line in echo:
+                if line[0] == "#":
+                    continue
 
-                    line = line.split()
-                    energies.append(float(line[3]))
+                line = line.split()
+                energies.append(float(line[3]))
 
-            ave = sum(energies)/len(energies)
+        ave = sum(energies)/len(energies)
 
-            stdev = 0
-            for e in energies:
-                stdev += (e - ave)**2
+        stdev = 0
+        for e in energies:
+            stdev += (e - ave)**2
 
-            stdev /= (len(energies)-1)
-            stdev = math.sqrt(stdev)
+        stdev /= (len(energies)-1)
+        stdev = math.sqrt(stdev)
 
-            self._average_energy = [ave, stdev]
-
-        return self._average_energy
+        return [ave, stdev] 
 
     def calculation_alarm_handler(self, signum, frame):
         """
