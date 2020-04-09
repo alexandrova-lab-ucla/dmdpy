@@ -1,6 +1,6 @@
 dmdpy
 =
-A python interface for [piDMD](http://www.turbomole.com/). Currently supports up the latest version of piDMD.
+A python interface for [piDMD](http://www.moleculesinaction.com/pdmd.html). Currently supports up the latest version of piDMD.
 
 ## Table of Contents
 
@@ -15,14 +15,16 @@ A python interface for [piDMD](http://www.turbomole.com/). Currently supports up
 * [License](#License)
 
 ## Description
-This project can be used as a set of executables or as python modules. The three main executable scripts are `setupturbomole.py`, `runturbomole.py`, and `submitturbomole.py`. `setupturbomole.py` sets up a turbomole job, `runturbomole.py` runs a turbomole job, and `submitturbomole.py` submits a turbomole job to a queueing system.
+This project can be used as a set of executables or as python modules. The three main executable scripts are 
+`setupdmd.py`, `rundmd.py`, and `submitdmd.py`. `setupdmd.py` sets up a piDMD simulation, `rundmd.py` runs piDMD simulations,
+and `submitdmd.py` submits a piDMD simulation to a queueing system.
 
-The modules `turbopy.calculation` and `turbopy.setupjob` can be imported to other python projects be accessed directly.
+The modules `dmdpy.calculation` and `dmdpy.setupjob` can be imported to other python projects be accessed directly.
 
 ## Technologies
 Project created with:
 * [Python](https://www.python.org/downloads/) version: 3.6
-* [TURBOMOLE](http://www.turbomole.com/) version: 6.6
+* [piDMD](http://www.moleculesinaction.com/pdmd.html) 
 
 ## Installation
 This code needs a python version greater than 3.7. Check your python version using
@@ -59,6 +61,9 @@ After the `phd_config.json` file is updated, try rerunning `setupdmd.py`. This t
 then its installation was successful! If you are going to be using `submitdmd.py` then you also need to supply it with a submission template in 
 the form jinja2 format. You can view a sample `submit.j2` in `/dmdpy/templates/submit.j2` for a UGE queuing system. The `submit.j2` is highly 
 platform and system dependent. A list of keywords is listed in [Submission Keywords](#Submission-Keywords) section.
+
+NOTE: you need to have piDMD prior to installing dmdpy. These executables only work if you have a licensed copy of DMD. Please contact
+Molecules in Action to receive a copy of piDMD.
 
 ## DMD Options <a name="options"></a>
 For a full list of what each of these parameters does, it is best to refer to the piDMD manual. This file is meant to make life easier to replicate
