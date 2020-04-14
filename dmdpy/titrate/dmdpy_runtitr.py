@@ -31,7 +31,7 @@ def run_titr_feature(updated_parameters, inp_pdb, pH, buried_cutoff, partner_dis
                 temp_prot_com = []
                 split_line_space = line.split()
                 split_line_period = split_line_space[1].split('.')
-                temp_prot_com = [split_line_period[0], split_line_period[1], split_line_space[0], split_line_period[2]]
+                temp_prot_com = [chr(ord('A') - 1 + int(split_line_period[0])),int(split_line_period[1]),split_line_space[0].lower()]#, split_line_period[2]]
                 new_prot_com += [temp_prot_com]
 
     updated_parameters['Custom protonation states'] = new_prot_com

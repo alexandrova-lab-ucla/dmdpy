@@ -15,6 +15,8 @@ import dmdpy.utility.utilities as utilities
 from dmdpy.setupjob import setupDMDjob
 from dmdpy.utility.exceptions import ParameterError
 
+import dmdpy.titrate.dmdpy_runtitr as dmdpy_runtitr
+
 logger=logging.getLogger(__name__)
 
 __all__ = [
@@ -223,10 +225,10 @@ class calculation:
                 # git commit -a -m "Titrate"
 
                 # Preset variables for now
-                titr-inp_pdb = "last_frame.pdb"
-                titr-pH = 3.0 # These will need to be user variables under the titr section, the pH obviously has to be set by the user with no default
-                titr-buried_cutoff = 0.75 # These two are supplied with their default values that should be used if not specified by user
-                titr-partner_dist = 3.5
+                titr_inp_pdb = "last_frame.pdb"
+                titr_pH = 3.0 # These will need to be user variables under the titr section, the pH obviously has to be set by the user with no default
+                titr_buried_cutoff = 0.75 # These two are supplied with their default values that should be used if not specified by user
+                titr_partner_dist = 3.5
 
                 if os.path.isfile(updated_parameters["Echo File"]):
                     os.rename(updated_parameters["Echo File"], "_tmpEcho")
@@ -238,14 +240,13 @@ class calculation:
                         for line in tmp:
                             movie.write(line)
 
+                    lastframe = utilities.last_frame("_tmpMovie.pdb")
                     os.remove("_tmpMovie.pdb")
-
-                    lastframe = utilities.last_frame(updated_parameters["Movie File"])
                     
                     #Can cause weird issues with dmd 
                     os.remove(updated_parameters["Movie File"])
                     lastframe.write_pdb("last_frame.pdb")
-                    titr-inp_pdb = "last_frame.pdb"
+                    titr_inp_pdb = "last_frame.pdb"
 
                 else:
                     #No movie file...use initial.pdb
@@ -258,8 +259,10 @@ class calculation:
                 if os.path.isfile(updated_parameters["Restart File"]):
                     os.remove(updated_parameters["Restart File"])
 
-                updated_parameters = run_titr_feature(updated_parameters, titr-inp_pdb, titr-pH, titr-buried_cutoff, titr-partner_dist)
+                updated_parameters = dmdpy_runtitr.run_titr_feature(updated_parameters, titr_inp_pdb, titr_pH, titr_buried_cutoff,
+                        titr_partner_dist)
 
+                print(updated_parameters["Custom protonation states"])
                 #run the setup once again
                 s = setupDMDjob(parameters=updated_parameters, pro=lastframe)
 

@@ -1,4 +1,4 @@
-#!/u/local/apps/python/3.7.2/bin/python3
+#!/usr/bin/env python3
 # EASY-INSTALL-ENTRY-SCRIPT: 'PROPKA==3.1.0','console_scripts','propka31'
 __requires__ = 'PROPKA==3.1.0'
 import re
