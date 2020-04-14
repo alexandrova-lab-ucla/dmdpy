@@ -214,6 +214,22 @@ class calculation:
                 # What we will have happen is the titr feature either just run the job, seperate from here
                 # Or we can have it update self._commands with the appropriate commands until it is done with all of the steps
 
+                # Quick script gives the last frame from movie in pdb format as a file
+                # Overwrite initial.pdb with this file
+                # Run titr-feature to get custom protonation states commands and update updated_parameters object
+                # Return updated parameters with new custom protonation states
+                # List of chain num - res num - protonate or deprotonate - optional: atom to protonate or deprotonate (naming conventions under utilities/constants)
+
+                # git commit -a -m "Titrate"
+
+                # Preset variables for now
+                titr-inp_pdb = initial.pdb # Just for testing, give it the pdb created from the last frame of movie
+                titr-pH = 3.0 # These will need to be user variables under the titr section, the pH obviously has to be set by the user with no default
+                titr-buried_cutoff = 0.75 # These two are supplied with their default values that should be used if not specified by user
+                titr-partner_dist = 3.5
+
+                updated_parameters = run_titr_feature(updated_parameters, titr-inp_pdb, titr-pH, titr-buried_cutoff, titr-partner_dist)
+
             elif "Custom protonation states" in steps.keys():
                 logger.warning("Why are you trying to change the protonation state in the middle of DMD?")
 
