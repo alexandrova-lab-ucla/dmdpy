@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+# Unfortunately, this is the most condensed I can make my titratable feature as it exists now. Will clean this up to work with dmdpy better later.
+
+def run_titr_feature(updated_parameters, inp_pdb, pH, buried_cutoff, partner_dist):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+
+    os.system(script_dir + '/formatpdb/formatpdb.sh -i ' + inp_pdb + ' -o ' + inp_pdb + ' -f Standard')
+    os.system(script_dir + '/propka31 ' + inp_pdb + ' > propka.stdout') # Run propka itself on the pdb file
+    print('sure')
+    os.system(script_dir + '/main.py ' + inp_pdb + ' ./ prot.pdb ' + str(pH) + ' ' + str(buried_cutoff) + ' ' + str(partner_dist) + ' > titrConstr')
+    #os.system(script_dir + 'formatpdb/formatpdb.sh -i prot.pdb -o prot.pdb -f DMD')
+    #inConstr_commands = os.popen(script_dir + 'prot2inConstr.py ' + inp_pdb + ' prot.pdb').read().split('\n')
+
+    # Old procedure bash calls:
+    #predict-pka new.pdb out_all.pdb avepka curr_step
+    #titration-inConstr new.pdb pH buried_cutoff partner_dist
+    #prot2inConstr.py orignew.pdb prot.pdb new.pdb >> protsConstr
+
+    return updated_parameters
+
+updated_parameters = 'stuff'
+inp_pdb = 'initial.pdb'
+pH = 7.0
+buried_cutoff = 0.75
+partner_dist = 3.5
+run_titr_feature(updated_parameters, inp_pdb, pH, buried_cutoff, partner_dist)

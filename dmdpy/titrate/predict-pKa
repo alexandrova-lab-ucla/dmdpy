@@ -1,0 +1,24 @@
+#!/bin/bash
+
+script_loc=$(dirname $(readlink -f $0))
+
+pKaaveproc=$3
+current_step=$4
+
+echo "reformat input pdb"
+cp $1 stform_$1
+$script_loc/../formatpdb/formatpdb.sh -i stform_$1 -o stform_$1 -f Standard
+
+echo "propka run" # Needs python 3.7.2
+if [ "$pKaaveproc" == "end" ] || [ "$current_step" == "0" ]; then
+    $script_loc/propka31 ./stform_$1 >> propka.stdout
+elif [ "$pKaaveproc" == "avepka" ] && [ "$current_step" != "0" ]; then
+    $script_loc/avepka_propka.py $2 stform_new.pka $script_loc
+    rm out_fullsim.pdb
+    cat new.pdb >> new_fullsim.pdb
+    cat stform_new.pka >> propka.stdout
+elif [ "$pKaaveproc" == "avestruct" ]; then
+    echo "Not implemented"
+    $script_loc/propka31 ./stform_$1 >> propka.stdout
+fi
+
