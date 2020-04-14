@@ -97,8 +97,8 @@ def load_dmd_config():
 
     try:
         logger.debug("Loading in the dmd_config parameters")
-        with open(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json')) as logger_config:
-            config = json.load(logger_config)
+        with open(path_to_config) as dmd_config:
+            config = json.load(dmd_config)
 
         return config
 
@@ -520,7 +520,7 @@ def make_movie(initial_pdb, movie_file, output_pdb):
     """
     try:
         logger.debug("Creating movie file")
-        print(initial_pdb)
+        print(dmd_config['PATHS']['parameters'])
         with Popen(
                 f"complex_M2P.linux {dmd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
