@@ -585,4 +585,6 @@ def load_movie(movie_file:str):
     logger.debug("Successfully loaded in the file!")
     return proteins
 
-
+def last_frame(file_name):
+    proteins = load_movie(file_name)
+    return proteins[-1]

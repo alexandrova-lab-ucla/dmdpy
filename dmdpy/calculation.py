@@ -223,12 +223,50 @@ class calculation:
                 # git commit -a -m "Titrate"
 
                 # Preset variables for now
-                titr-inp_pdb = initial.pdb # Just for testing, give it the pdb created from the last frame of movie
+                titr-inp_pdb = "last_frame.pdb"
                 titr-pH = 3.0 # These will need to be user variables under the titr section, the pH obviously has to be set by the user with no default
                 titr-buried_cutoff = 0.75 # These two are supplied with their default values that should be used if not specified by user
                 titr-partner_dist = 3.5
 
+                if os.path.isfile(updated_parameters["Echo File"]):
+                    os.rename(updated_parameters["Echo File"], "_tmpEcho")
+
+                if os.path.isfile(updated_parameters["Movie File"]):
+                    #Append movie to movie.pdb
+                    utilities.make_movie("initial.pdb", updated_parameters["Movie File"], "_tmpMovie.pdb")
+                    with open("_tmpMovie.pdb", "r") as tmp, open("movie.pdb", "a") as movie:
+                        for line in tmp:
+                            movie.write(line)
+
+                    os.remove("_tmpMovie.pdb")
+
+                    lastframe = utilities.last_frame(updated_parameters["Movie File"])
+                    
+                    #Can cause weird issues with dmd 
+                    os.remove(updated_parameters["Movie File"])
+                    lastframe.write_pdb("last_frame.pdb")
+                    titr-inp_pdb = "last_frame.pdb"
+
+                else:
+                    #No movie file...use initial.pdb
+                    if os.path.isfile("last_frame.pdb"):
+                        os.remove("last_frame.pdb")
+
+                    shutil.copy("initial.pdb", "last_frame.pdb")
+                    lastframe = utilities.load_pdb("last_frame.pdb")
+
+                if os.path.isfile(updated_parameters["Restart File"]):
+                    os.remove(updated_parameters["Restart File"])
+
                 updated_parameters = run_titr_feature(updated_parameters, titr-inp_pdb, titr-pH, titr-buried_cutoff, titr-partner_dist)
+
+                #run the setup once again
+                s = setupDMDjob(parameters=updated_parameters, pro=lastframe)
+
+                if os.path.isfile("_tmpEcho"):
+                    os.rename("_tmpEcho", updated_parameters["Echo File"])
+                
+                self.run_dmd(updated_parameters, self._start_time, False)
 
             elif "Custom protonation states" in steps.keys():
                 logger.warning("Why are you trying to change the protonation state in the middle of DMD?")
