@@ -293,7 +293,7 @@ def valid_parameters(parameters: dict):
     else:
         for command in parameters["Commands"]:
             try:
-                assert(type(command) is dict)
+                assert(type(parameters["Commands"][command]) is dict)
 
             except ValueError:
                 raise ParameterError(f"Command provided is not a dictionary: {command}")

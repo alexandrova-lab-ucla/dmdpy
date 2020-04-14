@@ -94,6 +94,12 @@ class calculation:
         # TODO check to see if we are doing titratable DMD-if so, create a titratable object and start interacting with that
         # Have it expand the commands to a set of block commands that will always update the protonation state->ie calls the titr feature to reset the inConstr file and movie the necessary files around!!!!!!
 
+        if self._raw_parameters["titr"]["titr on"]:
+            logger.debug("Expanding parameters")
+            steps = int(self._raw_parameters["Time"] / self._raw_parameters["titr"]["dt"])
+            for s in range(steps):
+                self._raw_parameters["Commands"][f"{s}"] = {"Time" : self._raw_parameters["titr"]["dt"]}
+
         # TODO check for any exceptions raised from setupDMDjob
         if pro is None:
             if not os.path.isfile("initial.pdb"):
@@ -265,7 +271,7 @@ class calculation:
                 print(updated_parameters["Custom protonation states"])
                 #run the setup once again
                 s = setupDMDjob(parameters=updated_parameters, pro=lastframe)
-
+                
                 if os.path.isfile("_tmpEcho"):
                     os.rename("_tmpEcho", updated_parameters["Echo File"])
                 

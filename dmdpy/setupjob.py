@@ -272,23 +272,36 @@ class setupDMDjob:
                     logger.debug(f"Adding protonation state: {state[0]} and {state[1]}")
                     atom_id = ""
                     #TODO try and except for weird atoms or residues if it cannot find it
-                    if len(state[1]) > 1:
-                        #Then we had a number specify
-                        logger.debug("Specified which atom specifically to use!")
-                        if state[1][0] == "protonate":
+                    #TODO fix for c and n terminus
+                    if state[0].number == 1 and state[1][0] == "protonate":
+                        logger.debug("N-terminus!")
+                        atom_id = "N"
+
+                    elif state[1][0] == "protonate":
+                        if state[0].name not in constant.PROTONATED.keys():
+                            logger.warn(f"Cannot protonate {state[0].name}")
+                            continue
+
+                        if len(state[1]) > 1:
+                            logger.debug("Specified which atom to use")
                             atom_id = constant.PROTONATED[state[0].name][state[1][1]]
 
-                        elif state[1][0] == "deprotonate":
-                            atom_id = constant.DEPROTONATED[state[0].name][state[1][1]]
-
-                    else:
-                        if state[1][0] == "protonate":
+                        else:
                             atom_id = constant.PROTONATED[state[0].name][0]
 
-                        elif state[1][0] == "deprotonate":
+                    elif state[1][0] == "deprotonate":
+                        if state[0].name not in constant.DEPROTONATED.keys():
+                            logger.warn(f"Cannot deprotonate {state[0].name}")
+                            continue
+    
+                        if len(state[1]) > 1:
+                            logger.debug("Specified which atom to use")
+                            atom_id = constant.DEPROTONATED[state[0].name][state[1][1]]
+
+                        else:
                             atom_id = constant.DEPROTONATED[state[0].name][0]
 
-                    if atom_id == "":
+                    else:
                         raise ValueError("Did not specify to protonate or deprotonate correctly")
 
                     try:
