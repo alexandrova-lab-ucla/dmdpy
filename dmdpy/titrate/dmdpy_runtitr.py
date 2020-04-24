@@ -14,7 +14,7 @@ def run_titr_feature(updated_parameters, inp_pdb, pH, buried_cutoff, partner_dis
     os.system(script_dir + '/formatpdb/formatpdb.sh -i ' + inp_pdb + ' -o ' + inp_pdb + ' -f Standard')
 
     #TODO pip install propka and call it that way...
-    os.system(script_dir + '/propka31 ' + inp_pdb + ' > propka.stdout') # Run propka itself on the pdb file
+    os.system('python3 ' + script_dir + '/propka31 ' + inp_pdb + ' > propka.stdout') # Run propka itself on the pdb file
     
     #TODO python modularize this..
     os.system(script_dir + '/main.py ' + inp_pdb + ' ./ prot.pdb ' + str(pH) + ' ' + str(buried_cutoff) + ' ' + str(partner_dist) + ' inConstr' + ' > titrConstr')
