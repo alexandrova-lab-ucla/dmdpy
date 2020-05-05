@@ -270,7 +270,13 @@ class calculation:
 
                 print(updated_parameters["Custom protonation states"])
                 #run the setup once again
-                s = setupDMDjob(parameters=updated_parameters, pro=lastframe)
+                try:
+                    s = setupDMDjob(parameters=updated_parameters, pro=lastframe)
+                
+                except:
+                    logger.error("Exception when resetting  up the job!")
+                    logger.error("Retrying...")
+                    s = setupDMDjob(parameters=updated_parameters, pro=lastframe)
                 
                 if os.path.isfile("_tmpEcho"):
                     os.rename("_tmpEcho", updated_parameters["Echo File"])
