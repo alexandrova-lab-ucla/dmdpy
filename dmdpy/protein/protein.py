@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
+"""
+Author  ==>> Matthew R. Hennefarth
+Date    ==>> April 16, 2020
+"""
 
-
+#Standard Library Imports
 import logging
 import pkg_resources
 import csv
@@ -8,9 +12,9 @@ import os
 import numpy as np
 from subprocess import Popen, PIPE
 
-from dmdpy.utility import constants
-from dmdpy.protein.chain import Chain
-from dmdpy.protein.residue import Residue
+#PHD3 Imports
+from ..utility import constants
+from . import chain, residue
 
 __all__=[
     'Protein'
@@ -18,9 +22,9 @@ __all__=[
 
 class Protein:
 
-    __slots__ = ['chains', '_logger', 'non_residues', 'metals', 'name', 'sub_chain']
+    __slots__ = ['chains', '_logger', 'non_residues', 'metals', 'name', 'sub_chain', 'coords']
 
-    def __init__(self, name: str, chains: [Chain]):
+    def __init__(self, name: str, chains: [chain.Chain]):
 
         self._logger = logging.getLogger(__name__)
 
@@ -29,17 +33,23 @@ class Protein:
         self.chains = chains
         self.non_residues = []
         self.metals = []
-        self.sub_chain = Chain()
+        self.sub_chain = chain.Chain()
+        self.coords = None
 
         self._logger.debug(f"Created protein {str(self)}")
 
-    def reformat_protein(self):
+    def reformat_protein(self, relabel_protein=True):
         # This is the BIG BIG BIG function that fixes EVERYTHING of a pdb for DMD
         # Don't question why it does things, it needs to
+        
+        self.non_residues.clear()
+        self.metals.clear()
+
         res_renum = 1
         chain_let = 'A'
 
         chain_num = 0
+        self._logger.debug("Looping over the chains")
         while chain_num < len(self.chains):
             atom_renum = 1
             residue_num = 0
@@ -49,8 +59,13 @@ class Protein:
                     atom_num = 0
                     while atom_num < len(self.chains[chain_num].residues[residue_num].atoms):
                         # Remove metal from this, and make it its own residue essentially
-                        if self.chains[chain_num].residues[residue_num].atoms[atom_num].element in constants.METALS:
+                        if self.chains[chain_num].residues[residue_num].atoms[atom_num].element.lower() in constants.METALS:
                             self._logger.debug(f"Found a metal: {self.chains[chain_num].residues[residue_num].atoms[atom_num]} in residue {self.chains[chain_num].residues[residue_num]}")
+                            
+                            if self.chains[chain_num].residues[residue_num].atoms[atom_num].element.lower() == "zn":
+                                if self.chains[chain_num].residues[residue_num].atoms[atom_num].id.lower() in constants.METALS:
+                                    self.chains[chain_num].residues[residue_num].atoms[atom_num].element = self.chains[chain_num].residues[residue_num].atoms[atom_num].id.capitalize()
+
                             self.metals.append(self.chains[chain_num].residues[residue_num].atoms.pop(atom_num))
                             atom_num -= 1
 
@@ -74,6 +89,7 @@ class Protein:
 
                     res_renum += 1
                     residue_num += 1
+                    self._logger.debug("Finished renumbering")
 
             if not self.chains[chain_num].residues:
                 self._logger.debug(f"Removing chain: {self.chains[chain_num]}")
@@ -87,6 +103,7 @@ class Protein:
         #Now we add in the non-residues and the metals into a new chain!
         res_num = 1
         if self.non_residues or self.metals:
+            self._logger.debug("Rearranging the non-residue substrates and metals")
             self._logger.debug("Creating a substrate/metal chain")
             atom_num = 1
 
@@ -129,7 +146,7 @@ class Protein:
                 if metal.element.lower() != "zn":
                     metal.element = 'Zn'
 
-                metal_residue = Residue(name=name, number=res_num)
+                metal_residue = residue.Residue(name=name, number=res_num)
                 self._logger.debug(f"Adding metal {metal_residue} as a residue to substrate chain")
                 self.sub_chain.add_residue(metal_residue)
                 metal_residue.add_atom(metal)
@@ -139,17 +156,17 @@ class Protein:
                 atom_num += 1
 
             # Issue with assigning chain to atom
-            for residue in self.non_residues:
+            for res in self.non_residues:
                 start = 100
-                for atom in residue.atoms:
+                for atom in res.atoms:
                     atom.id = f"{atom.element.upper()[0]}{start}"
                     start += 1
 
-                self._logger.debug(f"Adding residue {residue} to substrate chain")
-                self.sub_chain.add_residue(residue)
-                residue.number = res_num
-                residue.inConstr_number = res_num
-                for atom in residue.atoms:
+                self._logger.debug(f"Adding residue {res} to substrate chain")
+                self.sub_chain.add_residue(res)
+                res.number = res_num
+                res.inConstr_number = res_num
+                for atom in res.atoms:
                     atom.number = atom_num
                     atom_num += 1
 
@@ -158,8 +175,13 @@ class Protein:
             self._logger.debug("Adding substrate chain to master chain")
             self.chains.append(self.sub_chain)
 
-        self.relabel()
-        self.make_bond_table()
+        if relabel_protein:
+            self._logger.debug("Relabeling the protein")
+            self.relabel()
+        
+        else: #relabel calls make_bond_table already
+            self._logger.debug("Making the bond table for the protein")
+            self.make_bond_table()
 
     def get_atom(self, identifier):
         for chain in self.chains:
@@ -191,7 +213,7 @@ class Protein:
         self._logger.error("Could not find the requested chain")
         raise ValueError
 
-    def write_pdb(self, name=None):
+    def write_pdb(self, name=None, exclude_sub_chain=False):
         if name is None:
             name = self.name
 
@@ -204,17 +226,18 @@ class Protein:
                             pdb.write(atom.pdb_line())
                     pdb.write('TER\n')
 
-                if not self.sub_chain.residues:
+                if self.sub_chain.residues:
+                    if not exclude_sub_chain:
+                        for residue in self.sub_chain.residues:
+                            for atom in residue.atoms:
+                                pdb.write(atom.pdb_line())
+                            pdb.write('TER\n')
+
+                else:
                     for residue in self.chains[-1].residues:
                         for atom in residue.atoms:
                             pdb.write(atom.pdb_line())
                     pdb.write('TER\n')
-
-                else:
-                    for residue in self.sub_chain.residues:
-                        for atom in residue.atoms:
-                            pdb.write(atom.pdb_line())
-                        pdb.write('TER\n')
 
                 pdb.write('ENDMDL\n')
 
@@ -223,6 +246,9 @@ class Protein:
             raise
 
     def relabel(self, format: str="DMD"):
+
+        #Need to make the bond table
+        self.make_bond_table()
 
         atom_label_dict = {}
         with open(pkg_resources.resource_filename('dmdpy.resources', 'atom_label.csv')) as csvfile:
@@ -241,6 +267,8 @@ class Protein:
                 else:
                     atom_label_dict[row[0]] = [row[1:]]
 
+        self._logger.debug("Loaded in the atom_label.csv file")
+
         def rename_residue(residue, terminus: str = None):
 
             # Checks for any amino acids/molecules not in the csv file first!
@@ -248,18 +276,46 @@ class Protein:
                 self._logger.warning(f"Residue: {residue.name}{residue.number} not in atom_label.csv!")
                 return
 
+            #This way we don't need so many naming schemes
+            nterm_hydrogens = []
+            cterm_oxygens = []
+            if terminus == "NTERM":
+                #Finding hydrogens attached to nitrogen
+                try:
+                    for a in residue.get_atom("N").bonds:
+                        if a.element.upper() == "H":
+                            nterm_hydrogens.append(a)
+                
+                except:
+                    self._logger.warn("Protein does not have a nitrogen at n-terminus")
+
+            if terminus == "CTERM":
+                try:
+                    for a in residue.get_atom("C").bonds:
+                        if a.element.upper() == "O":
+                            cterm_oxygens.append(a)
+
+                except:
+                    self._logger.warn("Protein does not have a carbonly at c-terminus")
+
             #Find the column that has the current naming scheme present
+            self._logger.debug("Checking for the scheme id")
             for schemeid in range(len(schemenames)):
                 scheme = []
+                nterm_scheme = []
                 for namelist in atom_label_dict[residue.name]:
+                    self._logger.debug(f"Adding scheme name: {namelist[schemeid]}")
                     scheme.append(namelist[schemeid])
 
                 if terminus is not None:
                     for namelist in atom_label_dict[terminus]:
                         scheme.append(namelist[schemeid])
+
                 # Check to see if this is the naming scheme
                 for atom in residue.atoms:
-                    if atom.id not in scheme:
+                    #Want to ignore and hydrogens attached to the nitrogen
+                    if atom not in nterm_hydrogens and atom not in cterm_oxygens and atom.id not in scheme:
+                        self._logger.debug(f"Atom: {atom.id} not in scheme: {scheme}")
                         break
 
                 else:
@@ -269,13 +325,83 @@ class Protein:
                 raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number} {atom}")
 
             #Loop over all of the atoms
+            self._logger.debug("Found the scheme id")
             for atom in residue.atoms:
+                if atom in nterm_hydrogens or atom in cterm_oxygens:
+                    #We want to deal with these seperately
+                    continue
+
                 old_atomid = scheme.index(atom.id)
                 if terminus is not None:
                     atom.id = (atom_label_dict[residue.name] + atom_label_dict[terminus])[old_atomid][newid]
 
                 else:
                     atom.id = atom_label_dict[residue.name][old_atomid][newid]
+
+            if nterm_hydrogens:
+                for schemeid in range(len(schemenames)):
+                    scheme = []
+                    for namelist in atom_label_dict[residue.name]:
+                        self._logger.debug(f"Adding scheme name: {namelist[schemeid]}")
+                        scheme.append(namelist[schemeid])
+
+                    if terminus is not None:
+                        for namelist in atom_label_dict[terminus]:
+                            scheme.append(namelist[schemeid])
+
+                    # Check to see if this is the naming scheme
+                    for atom in nterm_hydrogens:
+                        if atom.id not in scheme:
+                            self._logger.debug(f"Atom: {atom.id} not in scheme: {scheme}")
+                            break
+
+                    else:
+                        break # This is the correct naming scheme!
+
+                else:
+                    raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number} {atom}")
+            
+                self._logger.debug("Found the scheme id for nterminus hydrogens")
+                for atom in nterm_hydrogens:
+                    old_atomid = scheme.index(atom.id)
+                    if terminus is not None:
+                        atom.id = (atom_label_dict[residue.name] + atom_label_dict[terminus])[old_atomid][newid]
+
+                    else:
+                        atom.id = atom_label_dict[residue.name][old_atomid][newid]
+            
+            if cterm_oxygens:
+                for schemeid in range(len(schemenames)):
+                    scheme = []
+                    for namelist in atom_label_dict[residue.name]:
+                        self._logger.debug(f"Adding scheme name: {namelist[schemeid]}")
+                        scheme.append(namelist[schemeid])
+
+                    if terminus is not None:
+                        for namelist in atom_label_dict[terminus]:
+                            scheme.append(namelist[schemeid])
+
+                    # Check to see if this is the naming scheme
+                    for atom in cterm_oxygens:
+                        if atom.id not in scheme:
+                            self._logger.debug(f"Atom: {atom.id} not in scheme: {scheme}")
+                            break
+
+                    else:
+                        break # This is the correct naming scheme!
+
+                else:
+                    raise ValueError(f"Could not find the naming scheme for {residue.name}{residue.number} {atom}")
+            
+                self._logger.debug("Found the scheme id for nterminus hydrogens")
+                for atom in cterm_oxygens:
+                    old_atomid = scheme.index(atom.id)
+                    if terminus is not None:
+                        atom.id = (atom_label_dict[residue.name] + atom_label_dict[terminus])[old_atomid][newid]
+
+                    else:
+                        atom.id = atom_label_dict[residue.name][old_atomid][newid]
+
 
             # TODO add Jacks glycine hydrogen fixed so that naming convention is always the same with Chimera
 
@@ -286,28 +412,29 @@ class Protein:
             cterm = chain.residues[-1]
 
             for residue in chain.residues[1:-1]:
+                self._logger.debug(f"Relabeling residue: {residue.name} {residue.number}")
                 rename_residue(residue)
 
+    #TODO, better way of determinging what is 'bound' to the metal my guess.
     def atoms_near_metal(self, metal, cutoff = 3.05):
-        atom_list = []
-        for chain in self.chains[:-1]:
-            for residue in chain.residues:
-                for atom in residue.atoms:
-                    if atom.element in constants.HEAVY_ATOMS:
-                        if np.linalg.norm(atom.coords - metal.coords) < cutoff:
-                            atom_list.append(atom)
+        atom_list = [atom for c in self.chains[:-1]\
+                            for r in c.residues\
+                                for atom in r.atoms\
+                                if atom.element.lower() in constants.HEAVY_ATOMS\
+                                and np.linalg.norm(atom.coords - metal.coords) < cutoff]
 
         if not self.sub_chain.residues:
-            for residue in self.chains[-1].residues:
-                for atom in residue.atoms:
-                    if atom.element in constants.HEAVY_ATOMS:
-                        if np.linalg.norm(atom.coords - metal.coords) < cutoff:
-                            atom_list.append(atom)
-
+            atom_list.extend([atom for r in self.chains[-1].residues\
+                                    for atom in r.atoms\
+                                        if atom.element.lower() in constants.HEAVY_ATOMS\
+                                        and np.linalg.norm(atom.coords - metal.coords) < cutoff])
+       
         return atom_list
 
     def make_bond_table(self):
         self.write_pdb("bond.pdb")
+
+        successful = False
 
         with Popen(f"babel bond.pdb bond.mol2", stdin=PIPE, stdout=PIPE, stderr=PIPE,
                    universal_newlines=True, shell=True, bufsize=1, env=os.environ) as shell:
@@ -322,11 +449,13 @@ class Protein:
             self._logger.error("Could not create {residue.name} mol2 file!")
             raise OSError("mol2_file")
 
-        atom_list = []
+        #Clear the bond lists first:
         for chain in self.chains:
             for residue in chain.residues:
                 for atom in residue.atoms:
-                    atom_list.append(atom)
+                    atom.bonds.clear()
+
+        atom_list = [atom for c in self.chains for r in c.residues for atom in r.atoms]
 
         with open("bond.mol2") as mol_file:
             bond_section = False
@@ -342,3 +471,65 @@ class Protein:
         self._logger.debug("Cleaning up files created")
         os.remove("bond.pdb")
         os.remove("bond.mol2")
+
+    def get_coords(self):
+        if self.coords is None:
+            self.coords = [atom.coords for chain in self.chains for residue in chain.residues for atom in residue.atoms]
+        
+        return self.coords
+        
+    def aa_rmsd(self, pro):
+        
+        if pro is self:
+            return 0.0
+
+        #Makes it easier to work with this sort of stuff
+
+        this_coords = self.get_coords() - np.average(self.get_coords(), axis=0)
+        other_coords = pro.get_coords() - np.average(pro.get_coords(), axis=0)
+
+        #Now the coords have been centered, now we can start the rotation
+        assert(len(this_coords) == len(other_coords))
+        n_vec = np.shape(this_coords)[0]
+
+        h = np.dot(np.transpose(this_coords), other_coords)
+        v, s, w = np.linalg.svd(h)
+
+        is_reflection = (np.linalg.det(v) * np.linalg.det(w)) < 0.0
+
+        if is_reflection:
+            s[-1] = -s[-1]
+
+        other_coords = np.dot(other_coords, np.dot(v,w))
+       
+        diff = other_coords - this_coords
+
+        return np.sqrt((diff*diff).sum()/ len(this_coords))
+
+    def remove_h(self):
+        for chain in self.chains[:-1]:
+            for res in chain.residues:
+                remove_atoms = []
+                for a in res.atoms:
+                    if a.element.lower() == "h":
+                        remove_atoms.append(a)                    
+                        for b in a.bonds:
+                            b.bonds.remove(a)
+
+                for a in remove_atoms:
+                    res.atoms.remove(a)
+
+        if not self.sub_chain.residues:
+            for res in self.chains[-1]:
+                remove_atoms= []
+                for a in res.atoms:
+                    if a.element.lower() == "h":
+                        remove_atoms.append(a)
+                        for b in a.bonds:
+                            b.bonds.remove(a)
+                    
+                for a in remove_atoms:
+                    res.atoms.remove(a)
+
+
+        

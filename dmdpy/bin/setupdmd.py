@@ -15,13 +15,14 @@ def main():
         utilities.load_logger_config()
 
     except ValueError:
-        print("CRITICAL: Created .dmdpy in the root")
+        print("CRITICAL: Created .phd3 in the root")
         sys.exit(1)
 
     logger = logging.getLogger(__name__)
 
     try:
         sdj = setupDMDjob()
+        sdj.full_setup()
 
     except OSError:
         logger.exception("OSError encountered, likely an issue with moving files around")
@@ -43,6 +44,7 @@ def main():
 
         else:
             logger.error("Unknown ValueError encountered")
+            raise
 
     except ParameterError:
         logger.error("Please make sure your parameters are correct")

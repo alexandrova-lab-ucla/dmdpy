@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
-
-"""Custom exceptions for the dmdpy python package"""
+"""
+Author  ==>> Matthew R. Hennefarth
+Date    ==>> April 16, 2020
+"""
 
 __all__ = [
-    'ParameterError'
+    'Alarm',
+    'ParameterError',
+    'DefineError'
 ]
 
+class Alarm(Exception):
+    pass
+
 class ParameterError(Exception):
+    pass
+
+class DefineError(Exception):
     pass

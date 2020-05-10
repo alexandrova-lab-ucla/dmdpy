@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
+"""
+Author  ==>> Matthew R. Hennefarth
+Date    ==>> April 16, 2020
+"""
 
+#Standard Library Imports
+from subprocess import Popen, PIPE
+import subprocess
 import os
-import logging
 import json
+import signal
+import logging
 import pkg_resources
 import shutil
-import subprocess
-from subprocess import Popen, PIPE
+import random
 
-
-import dmdpy.utility.utilities as utilities
+#PHD3 Imports
+from dmdpy.utility import utilities, exceptions, constants
 import dmdpy.protein.protein as protein
-from dmdpy.utility.exceptions import ParameterError
-import dmdpy.utility.constants as constant
 
-logger = logging.getLogger(__name__)
-
-__all__=[
-    'setupDMDjob'
+__all__ = [
+    'setupDMDjob',
 ]
 
+logger = logging.getLogger(__name__)
 
 class setupDMDjob:
 
@@ -32,7 +36,7 @@ class setupDMDjob:
         logger.debug(f"Set run directory to: {self._run_directory}")
         self._initial_directory = os.getcwd()
         logger.debug(f"Set initial directory to: {self._initial_directory}")
-        self._dmd_config = utilities.load_dmd_config()
+        self._dmd_config = utilities.load_phd_config()
         os.environ["PATH"] += os.pathsep + self._dmd_config["PATHS"]["DMD_DIR"]
         self._protein = None
 
@@ -76,13 +80,13 @@ class setupDMDjob:
             self._raw_parameters = parameters
 
         try:
-            utilities.valid_parameters(self._raw_parameters)
+            utilities.valid_dmd_parameters(self._raw_parameters)
 
         except ValueError:
             logger.exception("Missing a parameter definition!")
             raise ValueError("definition")
 
-        except ParameterError:
+        except exceptions.ParameterError:
             logger.exception("Invalid parameter specification")
             raise
 
@@ -113,7 +117,29 @@ class setupDMDjob:
         self._displacement = []
         if "Restrict Displacement" in self._raw_parameters.keys():
             for atom_pair in self._raw_parameters["Restrict Displacement"]:
-                self._displacement.append([self._protein.get_atom(atom_pair[0]), self._protein.get_atom(atom_pair[1]), atom_pair[2]])
+                if type(atom_pair[0]) == list:
+                    res1 = self._protein.get_atom(atom_pair[0])
+
+                elif type(atom_pair[0]) == str:
+                    pair_split = atom_pair[0].split(":")
+                    res1 = self._protein.get_atom([pair_split[0], int(pair_split[1]), pair_split[2]])
+            
+                else:
+                    logger.error("Invalid specification of displacement atom")
+                    raise ValueError
+                
+                if type(atom_pair[1]) == list:
+                    res2 = self._protein.get_atom(atom_pair[1])
+                
+                elif type(atom_pair[1]) == str:
+                    pair_split = atom_pair[1].split(":")
+                    res2 = self._protein.get_atom([pair_split[0], int(pair_split[1]), pair_split[2]])
+
+                else:
+                    logger.error("Invalid specification of displacement atom")
+                    raise ValueError
+
+                self._displacement.append([res1, res2, atom_pair[2]])
 
         self._static = []
         if "Frozen atoms" in self._raw_parameters.keys():
@@ -129,8 +155,18 @@ class setupDMDjob:
 
             for residue in self._raw_parameters["Frozen atoms"]["Residues"]:
                 try:
-                    protein_residue = self._protein.get_residue(residue)
-                    self._static.extend(protein_residue.atoms)
+                    if type(residue) == list:
+                        residue = self._protein.get_atom(residue)
+
+                    elif type(residue) == str:
+                        residue_split = residue.split(":")
+                        res = self._protein.get_residue([residue_split[0], int(residue_split[1])])
+                    
+                    else:
+                        logger.error("Invalid specification of frozen residue")
+                        raise ValueError
+
+                    self._static.extend(res.atoms)
 
                 except ValueError:
                     logger.exception("Could not find the residue!")
@@ -138,7 +174,16 @@ class setupDMDjob:
 
             for atom in self._raw_parameters["Frozen atoms"]["Atoms"]:
                 try:
-                    self._static.append(self._protein.get_atom(atom))
+                    if type(atom) == list:
+                        self._static.append(self._protein.get_atom(atom))
+
+                    elif type(atom) == str:
+                        atom_split = atom.split(":")
+                        self._static.append(self._protein.get_atom([atom_split[0], int(atom_split[1]), atom_split[2]]))
+
+                    else:
+                        logger.error("Invalid specification of frozen atom")
+                        raise ValueError
 
                 except ValueError:
                     logger.exception("Could not find the atom!")
@@ -148,8 +193,21 @@ class setupDMDjob:
         self._protonate = []
         if "Custom protonation states" in self._raw_parameters.keys():
             for item in self._raw_parameters["Custom protonation states"]:
-                id = [item[0], item[1]]
-                self._protonate.append([self._protein.get_residue(id), item[2:]])
+                if type(item[1]) == str:
+                    tmp_item = item[0].split(":")
+                    res_id = [tmp_item[0], int(tmp_item[1])]
+                
+                elif type(item[1]) == int:
+                    res_id = [item[0], item[1]]
+                
+                else:
+                    logger.error("Invalid specification of residue in protonation state")
+                    raise ValueError
+
+                self._protonate.append([self._protein.get_residue(res_id), item[2:]])
+
+
+    def full_setup(self):
 
         logger.debug("Changing protein name to initial.pdb and writing out")
         self._protein.reformat_protein()
@@ -162,13 +220,20 @@ class setupDMDjob:
         self.short_dmd()
         utilities.make_start_file(self._raw_parameters)
 
-        logger.info("#####################")
-        logger.info("##                 ##")
-        logger.info("##    SUCCESS!!    ##")
-        logger.info("##                 ##")
-        logger.info("#####################")
+        logger.info("[setup dmd]        ==>> SUCCESS")
 
-    def short_dmd(self):
+    def titrate_setup(self):
+        logger.debug("Skipping short dmd step")
+        self._protein.reformat_protein()
+        self._protein.name = 'initial.pdb'
+        self._protein.write_pdb()
+
+        self.make_inConstr()
+        utilities.make_state_file(self._raw_parameters, self._protein.name)
+        utilities.make_start_file(self._raw_parameters)
+        logger.info("[titratable setup] ==>> SUCCESS")
+
+    def short_dmd(self, keep_movie=False, time=1):
         try:
             with open("dmd_start_short", 'w') as dmdstart:
                 dmdstart.write(f"THERMOSTAT     {self._raw_parameters['Thermostat']}\n")
@@ -182,7 +247,7 @@ class setupDMDjob:
                 dmdstart.write(f"MOVIE_FILE     {self._raw_parameters['Movie File']}\n")
                 dmdstart.write(f"START_TIME     0\n")
                 dmdstart.write(f"MOVIE_DT       1\n")
-                dmdstart.write(f"MAX_TIME       1\n")
+                dmdstart.write(f"MAX_TIME       {time}\n")
 
         except IOError:
             logger.exception("Error writing out dmd_start file")
@@ -220,9 +285,12 @@ class setupDMDjob:
         logger.debug("Was able to create a pdb from the short DMD run")
         logger.debug("Good to go, removing old file now")
         os.remove("check.pdb")
-        os.remove(self._raw_parameters['Movie File'])
+        if not keep_movie:
+            os.remove(self._raw_parameters['Movie File'])
+        
         os.remove(self._raw_parameters['Echo File'])
         os.remove(self._raw_parameters['Restart File'])
+        
         os.remove("dmd_start_short")
 
     def make_topparam(self):
@@ -246,18 +314,6 @@ class setupDMDjob:
     def make_inConstr(self):
         try:
             with open('inConstr', 'w') as inConstr_file:
-                # This is apparently not needed
-                # try:
-                #     with Popen(f"genESC.linux {self._dmd_config['PATHS']['parameters']} {self._protein.name} topparam",
-                #                stdout=inConstr_file, stderr=PIPE, universal_newlines=True, shell=True, bufsize=1,
-                #                env=os.environ) as shell:
-                #         while shell.poll() is None:
-                #             if len(shell.stderr.readline().strip()) > 0:
-                #                 logger.debug(shell.stderr.readline().strip())
-                # except OSError:
-                #     logger.exception("Error calling genESC.linux")
-                #     raise
-
                 if self._raw_parameters["Freeze Non-Residues"]:
                     logger.debug("Freeze Non-residues turned on, freezing residues")
                     for residue in self._protein.sub_chain.residues:
@@ -275,18 +331,27 @@ class setupDMDjob:
                     if len(state[1]) > 1:
                         #Then we had a number specify
                         logger.debug("Specified which atom specifically to use!")
-                        if state[1][0] == "protonate":
-                            atom_id = constant.PROTONATED[state[0].name][state[1][1]]
+                        
+                        #For n-terminus
+                        if state[1][1] == -1:
+                            atom_id = "N"
+
+                        #For c-terminus
+                        elif state[1][1] == -2:
+                            atom_id = "O"
+
+                        elif state[1][0] == "protonate":
+                            atom_id = constants.PROTONATED[state[0].name][state[1][1]-1]
 
                         elif state[1][0] == "deprotonate":
-                            atom_id = constant.DEPROTONATED[state[0].name][state[1][1]]
+                            atom_id = constants.DEPROTONATED[state[0].name][state[1][1]-1]
 
                     else:
                         if state[1][0] == "protonate":
-                            atom_id = constant.PROTONATED[state[0].name][0]
+                            atom_id = constants.PROTONATED[state[0].name][0]
 
                         elif state[1][0] == "deprotonate":
-                            atom_id = constant.DEPROTONATED[state[0].name][0]
+                            atom_id = constants.DEPROTONATED[state[0].name][0]
 
                     if atom_id == "":
                         raise ValueError("Did not specify to protonate or deprotonate correctly")
@@ -315,7 +380,7 @@ class setupDMDjob:
                             inConstr_file.write(f"Static {atoms.write_inConstr()}\n")
 
                             for bonded_atoms in atoms.bonds:
-                                if bonded_atoms.element != "h" and bonded_atoms.element not in constant.METALS:
+                                if bonded_atoms.element.lower() != "h" and bonded_atoms.element.lower() not in constants.METALS:
                                     logger.debug(f"Restricting motion of atom {bonded_atoms} and atom {metal} by {0.05}")
                                     inConstr_file.write(
                                         f"AtomPairRel {bonded_atoms.write_inConstr()} {metal.write_inConstr()} -{0.05} +{0.05}\n")
@@ -339,32 +404,22 @@ class setupDMDjob:
         # Update the custom protonation states
         for new_state, state in zip(new_parameters["Custom protonation states"], self._protonate):
             new_state[0] = state[0].chain.name
-            new_state[1] = state[0].residue.number
+            new_state[1] = state[0].number
             new_state[2] = state[1][0]
             if len(new_state) == 4:
                 new_state[3] = state[1][1]
 
         # Update the frozen atoms
-        for new_state, state in zip(new_parameters["Frozen atoms"]["Chains"], self._static["chains"]):
-            new_state = state.name
-
-        for new_state, state in zip(new_parameters["Frozen atoms"]["Residues"], self._static["residues"]):
-            new_state[0] = state.chain.name
-            new_state[1] = state.number
-
-        for new_state, state in zip(new_parameters["Frozen atoms"]["Atoms"], self._static["atoms"]):
-            new_state[0] = state.chain.name
-            new_state[1] = state.residue.number
-            new_state[2] = state.id
+        new_parameters["Frozen atoms"]["Chains"].clear()
+        new_parameters["Frozen atoms"]["Residues"].clear()
+        new_parameters["Frozen atoms"]["Atoms"].clear()
+        
+        for a in self._static:
+            new_parameters["Frozen atoms"]["Atoms"].append(a.label())
 
         # Update the displacement atoms
-        for new_state, state in zip(new_parameters["Restrict Displacement"], self._displacement):
-            new_state[0][0] = state[0].chain.name
-            new_state[0][1] = state[0].residue.number
-            new_state[0][2] = state[0].id
-            new_state[1][0] = state[1].chain.name
-            new_state[1][1] = state[1].residue.number
-            new_state[1][2] = state[1].id
-            new_state[2] = state[2]
+        new_parameters["Restrict Displacement"].clear()
+        for state in self._displacement:
+            new_parameters["Restrict Displacement"].append([state[0].label(), state[1].label(), state[2]])
 
         return new_parameters

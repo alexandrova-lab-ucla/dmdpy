@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
+"""
+Author  ==>> Matthew R. Hennefarth
+Date    ==>> April 16, 2020
+"""
 
-from dmdpy.protein.atom import Atom
-from dmdpy.utility import constants
+import copy
+
+#PHD3 Imports
+from ..utility import constants
 
 #TODO have a heavy atom checker class to call a function that fixes
 # have it pipe out to a file first and then have setupjob.py call a protein function to call chimera swapaa function
@@ -27,8 +33,9 @@ class Residue:
         self.chain = None
         self.inConstr_number = self.number
 
-    def add_atom(self, atom: Atom):
+    def add_atom(self, atom):
         atom.residue = self
+        atom.verify_element()
         atom.chain = self.chain
         self.atoms.append(atom)
 
@@ -49,5 +56,44 @@ class Residue:
         else:
             return f"{ord(self.chain.name)- ord('A') + self.inConstr_number}.1.*"
 
+    def is_n_terminus(self):
+        if self.chain is not None:
+            if self is self.chain.residues[0]:
+                return True
+
+        return False
+   
+    def label(self):
+        return f"{self.chain.name}:{self.number}"
+
+    def is_c_terminus(self):
+        if self.chain is not None:
+            if self is self.chain.residues[-1]:
+                return True
+
+        return False
+
+    def set_chain(self, chain):
+        self.chain = chain
+        for atom in self.atoms:
+            atom.chain = chain
+
     def __str__(self):
         return f"{self.name} {self.number}"
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+
+        result.name = copy.deepcopy(self.name, memo)
+        result.number = copy.deepcopy(self.number, memo)
+        result.chain = self.chain
+        for atom in self.atoms:
+            copy_atom = copy.deepcopy(atom)
+            result.add_atom(copy_atom)
+
+        result.inConstr_number = copy.deepcopy(self.inConstr_number, memo)
+        return result
+
+

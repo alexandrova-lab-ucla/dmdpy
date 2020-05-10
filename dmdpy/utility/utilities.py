@@ -1,124 +1,301 @@
 #!/usr/bin/env python3
+"""
+Author  ==>> Matthew R. Hennefarth
+Date    ==>> April 16, 2020
+"""
 
+#Standard Library Imports
+import os
 import json
 import pkg_resources
 import logging
 import shutil
-import os
+import random
 from logging.config import dictConfig
-import subprocess
 from subprocess import Popen, PIPE
+import subprocess
 from random import shuffle
 
-from dmdpy.protein import atom, chain, residue, protein
-from dmdpy.utility import constants
-from dmdpy.utility.exceptions import ParameterError
+#PHD3 Imports
+from ..protein import atom, chain, residue, protein
+
+from . import constants
+from .exceptions import ParameterError
 
 __all__=[
-    'load_logger_config',
-    'load_dmd_config',
     'load_pdb',
     'make_mol2',
-    'create_config',
     'make_start_file',
     'make_state_file',
     'make_movie',
     'setup_dmd_environ',
-    'valid_parameters'
+    'valid_qm_parameters',
+    'load_movie',
+    'setup_turbomole_env',
+    'valid_dmd_parameters',
+    'create_config',
+    'load_phd_config',
+    'quote_me'
 ]
 
 logger = logging.getLogger(__name__)
 
+def setup_turbomole_env(turbodir: str):
+    """
+    Sets up the TURBOMOLE environment. Ensures that the paths are extended correctly in order to run any TURBOMOLE
+    commands including jobex, define, NumForce. It also sets up the parallel environment for TURBOMOLE
+
+    :param turbodir: Directory where TURBOMOLE is installed
+    """
+    logger.debug("Setting up the TURBOMOLE environment")
+
+    if turbodir in os.environ["PATH"] and f"{turbodir}/scripts" in os.environ["PATH"]:
+        #Should already be setup
+        return
+    
+    os.environ["TURBODIR"] = turbodir
+    os.environ["PATH"] += os.pathsep + turbodir + '/scripts'
+    os.environ["PATH"] += os.pathsep + turbodir
+
+    sysname = ""
+    with Popen('sysname', universal_newlines=True, shell=True,
+               stdin=PIPE, stdout=PIPE, stderr=PIPE, bufsize=1) as shell:
+        while shell.poll() is None:
+            sysname += shell.stdout.readline().strip()
+    
+    os.environ["PATH"] += os.pathsep + turbodir + f'/bin/{sysname}'
+    logger.debug("Finished setting up the TURBOMOLE environment")
+
+def valid_qm_parameters(parameters: dict):
+    """
+    Ensures that the dictionary provided has the proper parameters for _create_define_options to run within the class
+    SetupTurbomole. Can be used by other scripts to ensure that they have the proper parameters (but not necessarily
+    that define will run properly) without do too much extra work
+
+    :param parameters: dictionary that contains all of the parameters needed to setup a turbomole job. Should be modeled
+    after the definput.json file
+    :return: True if everything goes well. Will raise exceptions of type ParameterError if there is an issue/error
+    encountered
+    """
+    logger.debug("Checking if parameters are valid")
+    logger.debug("Checking geometry parameters")
+    if parameters["geometry"]["idef"]["idef_on"]:
+        logger.debug("Checking idef")
+        for bond in parameters["geometry"]["idef"]["freeze_stretch"]:
+            try:
+                atom1, atom2 = bond.split(',')
+                assert (atom1.isdigit())
+                assert (atom2.isdigit())
+            except ValueError:
+                raise ParameterError(f"incorrect formatting of idef bonds : {bond}")
+
+    if parameters["geometry"]["iaut"]['iaut_on']:
+        logger.debug("Checking iaut")
+        for bond in parameters["geometry"]["iaut"]["bonds"]:
+            try:
+                atom1, atom2 = bond.split(',')
+                assert (atom1.isdigit())
+                assert (atom2.isdigit())
+            except ValueError:
+                raise ParameterError(f"incorrect formatting of iaut bonds : {bond}")
+
+    if parameters["basis"]:
+        logger.debug("Checking basis")
+        for atom in parameters["basis"].keys():
+            if not parameters["basis"][atom] in constants.AVAILABLE_BASIS:
+                raise ParameterError(f"invalid basis set for: {atom} | {parameters['basis'][atom]}")
+
+    try:
+        logger.debug("Checking charge")
+        assert (type(parameters["charge"]) == int)
+
+    except:
+        logger.error("Invalid charge type provided!")
+        raise ParameterError("invalid charge provided")
+
+    if parameters["open_shell"]["open_shell_on"]:
+        logger.debug("Checking unpaired electrons")
+        try:
+            assert (type(parameters["open_shell"]["unpaired"]) == int)
+
+        except:
+            logger.error("Invalid value for unpaired electrons")
+            raise ParameterError("invalid number of unpaired electrons")
+
+    if parameters["dft"]["dft_on"]:
+        logger.debug("Checking dft")
+        if parameters["dft"]["func"] not in constants.AVAILABLE_FUNCS and parameters["dft"]["func"] not in constants.MINN_FUNCS:
+            logger.error("Functional provided not available")
+            raise ParameterError(f"invalid functional provided: {parameters['dft']['func']}")
+        if parameters["dft"]["grid"] not in constants.AVAILABLE_GRIDS:
+            logger.error("Grid provided is not available")
+            raise ParameterError(f"invalid grid provided: {parameters['dft']['grid']}")
+
+    if parameters["stp"]:
+        try:
+            logger.debug("Checking itvc")
+            assert (type(parameters["stp"]["itvc"]) == int)
+
+        except:
+            logger.error("Invalid itvc value")
+            raise ParameterError("invalid input for itvc")
+
+        try:
+            logger.debug("Checking trust radius")
+            assert (type(parameters["stp"]["trad"]) == float)
+
+        except:
+            logger.error("Invalid trust radius value")
+            raise ParameterError("invalid input for trad")
+
+    if parameters["cosmo"]:
+        logger.debug("Checking cosmo")
+        try:
+            assert (type(parameters["cosmo"]) == float or type(parameters["cosmo"]) == int)
+
+        except:
+            logger.error("Invalid cosmo value")
+            raise ParameterError("invalid input for cosmo")
+
+    if parameters["freeze_atoms"]:
+        try:
+            logger.debug("Checking frozen atoms")
+            assert (type(atom) == int for atom in parameters["freeze_atoms"])
+
+        except:
+            logger.error("Invalid list of frozen cartesian atoms")
+            raise ParameterError("invalid list of frozen cartesian atoms")
+
+    if parameters["gcart"]:
+        logger.debug("Checking gcart")
+        try:
+            assert (type(parameters["gcart"]) == int)
+
+        except:
+            logger.error("Invalid gcart value")
+            raise ParameterError("invalid value for gcart")
+
+    try:
+        assert (type(parameters["weight"]) == bool)
+
+    except:
+        logger.error("Invalid value for weight")
+        raise ParameterError("invalid value for weight")
+
+    if parameters["calculation"] == "":
+        logger.warning("No calculation type set!")
+
+    else:
+        if parameters["calculation"] not in constants.AVAILABLE_CALCULATIONS:
+            logger.error("Invalid value for calculation")
+            raise ParameterError("invalid calculation type")
+
+        if parameters["calculation"] == "trans" and parameters["stp"]["itvc"] == 0:
+            logger.error("Cannot perform trans calculation with itvc = 0!")
+            raise ParameterError("calculation and itvc do not match")
+
+        if parameters["calculation"] == "geo" or parameters["calculation"] == "forceopt":
+            if parameters["stp"]["itvc"] != 0:
+                logger.error("Cannot perform geo calculation with itvc not 0!")
+                raise ParameterError("calculation and itvc do not match")
 
 def create_config():
-    # TODO verify the accuracy of the config file!
-    logger.debug(f"Creating .dmdpy in the home directory: {os.path.expanduser('~')}")
-    home = os.path.expanduser('~')
-
+    # TODO: have a function that verifies the accuracy of the config file!
+    logger.debug(f"creating .dmdpy in the home directory: {os.path.expanduser('~')}")
+    home = os.path.expanduser("~")
     try:
         os.mkdir(os.path.join(home, '.dmdpy'))
 
     except FileExistsError:
-        logger.debug(".dmdpy directory already exists, continuing")
+        logger.debug(".phd3 directory already exists, continuing")
 
-    logger.debug("Placing default dmdpy_config.json in the .dmdpy directory")
+    logger.debug("Placing default dmd_config.json in the .turbopy directory")
     shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json'), os.path.join(home, '.dmdpy'))
     shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'logger_config.json'), os.path.join(home, '.dmdpy'))
+    logger.info(f"Please ensure that {os.path.join(home, '.dmdpy/dmd_config.json')} has the correct values.")
 
-    logger.info(f"Please ensure that {os.path.join(home, '.dmdpy')} has the correct values")
+
+def load_phd_config():
+    """Loads in the PHD Config File
+
+    :return: Dictionary of the config file
+    """
+    home = os.path.expanduser("~")
+    
+    # Check in the .config directory first, and then in the home directory
+    path_to_config = os.path.join(home, ".config/dmdpy/dmd_config.json")
+    
+    if not os.path.isdir(os.path.join(home, ".config/dmdpy")) and not os.path.isfile(path_to_config):
+        path_to_config = os.path.join(home, '.dmdpy/dmd_config.json')
+
+        if not os.path.isdir(os.path.join(home, '.dmdpy')):
+            create_config()
+            raise ValueError(".dmdpy missing")
+
+        if not os.path.isfile(path_to_config):
+            logger.error("Config file not in .dmdpy directory")
+            logger.warning("Copying default logger over now")
+            shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json'), os.path.join(home, '.dmdpy'))
+            raise ValueError("dmd_config.json file missing")
+
+    try:
+        logger.debug("Loading in dmd_config")
+        with open(path_to_config, 'r') as turbopy_config_file:
+            config = json.load(turbopy_config_file)
+
+    except IOError:
+        logger.critical("Couldn't find config file!")
+        raise
+
+    return config
+
+phd_config = load_phd_config()
 
 def load_logger_config():
     """Loads in the Logger Config File"""
+    home = os.path.expanduser("~")
+    path_to_config = os.path.join(home, ".config/dmdpy/logger_config.json")
+    
+    if not os.path.isdir(os.path.join(home, ".config/dmdpy")) and not os.path.isfile(path_to_config):
+        path_to_config = os.path.join(home, '.dmdpy/logger_config.json')
+        if not os.path.isdir(os.path.join(home, '.dmdpy')):
+            create_config()
+            raise ValueError(".dmdpy missing")
 
-    home = os.path.expanduser('~')
-    path_to_config = os.path.join(home, ".dmdpy/logger_config.json")
-
-    if not os.path.isdir(os.path.join(home, '.dmdpy')):
-        create_config()
-        raise ValueError(".dmdpy missing")
-
-    if not os.path.isfile(path_to_config):
-        print("Logger file not in .dmdpy directory")
-        print("Copying over default logger now")
-        shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'logger_config.json'), os.path.join(home, '.dmdpy'))
-
-    try:
-        with open(path_to_config) as logger_config:
-            config = json.load(logger_config)
-
-        dictConfig(config)
-        logger.debug("Loaded in logger parameters")
-        logger.debug("Logger has started!")
-
-    except IOError:
-        logger.critical("Could not open logger_config.json")
-        raise
-
-    except ValueError:
-        logger.critical("logger_config.json is not formatted properly")
-        raise
-
-
-def load_dmd_config():
-
-    home = os.path.expanduser('~')
-    path_to_config = os.path.join(home, ".dmdpy/dmd_config.json")
-
-    if not os.path.isdir(os.path.join(home, '.dmdpy')):
-        create_config()
-        raise ValueError(".dmdpy missing")
-
-    if not os.path.isfile(path_to_config):
-        logger.critical("DMD_config file not in .dmdpy directory")
-        logger.critical("Copying over default file now")
-        logger.critical("Ensure that the file is correct before continuing!")
-        shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'dmd_config.json'), os.path.join(home, '.dmdpy'))
-        raise ValueError("dmd_config.json file missing")
+        if not os.path.isfile(path_to_config):
+            print("Logger file not in .dmdpy directory")
+            print("Copying default logger over now")
+            shutil.copy(pkg_resources.resource_filename('dmdpy.resources', 'logger_config.json'), os.path.join(home, '.dmdpy'))
 
     try:
-        logger.debug("Loading in the dmd_config parameters")
-        with open(path_to_config) as dmd_config:
-            config = json.load(dmd_config)
-
-        return config
+        logger.debug("Loading in logger_config")
+        with open(path_to_config, 'r') as config_file:
+            logging_config = json.load(config_file)
 
     except IOError:
-        logger.critical("Could not open dmd_config.json")
+        print("CRITICAL: Error in loading in config file!!")
         raise
-
+    
+    try:
+        dictConfig(logging_config)
+    
     except ValueError:
-        logger.critical("dmd_config.json is not formatted properly")
-        raise
+        print("CRITICAL: Error in the logging_config.json file")
+        raise IOError
 
-dmd_config = load_dmd_config()
+    logger.debug("Loaded in logger parameters")
+    logger.debug("Logger has started!")
+
+def quote_me():
+    return constants.QUOTES[random.randint(1,10000) % len(constants.QUOTES)]
 
 def setup_dmd_environ():
     """ setups of an os.environ so that DMD can be run """
     logger.debug("Setting up DMD Environment")
-    os.environ["PATH"] += os.pathsep + dmd_config["PATHS"]["DMD_DIR"]
+    os.environ["PATH"] =  phd_config["PATHS"]["DMD_DIR"] + os.pathsep + os.environ["PATH"]
     return os.environ
 
-def valid_parameters(parameters: dict):
+def valid_dmd_parameters(parameters: dict):
     """Checks to see if the dmd parameters passed are valid at all"""
     logger.debug("Checking if parameters are valid")
     if "Thermostat" not in parameters.keys():
@@ -219,10 +396,19 @@ def valid_parameters(parameters: dict):
     else:
         for state in parameters["Custom protonation states"]:
             try:
-                assert(len(state) == 3)
                 assert(type(state[0]) == str)
-                assert(type(state[1]) == int and state[1] > 0)
-                assert(type(state[2]) == str)
+                if ":" in state[0]:
+                    assert(len(state) == 2 or len(state) == 3)
+                    assert(type(state[1]) == str)
+                    if len(state) == 3:
+                        assert(type(state[2]) == int)
+
+                else:
+                    assert(len(state) == 3 or len(state) == 4)
+                    assert(type(state[1]) == int)
+                    assert(type(state[2]) == str)
+                    if len(state) == 4:
+                        assert(type(state[3]) == int)
 
             except ValueError:
                 raise ParameterError(f"Invalid specification of protonation states: {state}")
@@ -246,8 +432,18 @@ def valid_parameters(parameters: dict):
         else:
             for residue in parameters["Frozen atoms"]["Residues"]:
                 try:
-                    assert(type(residue[0]) == str and residue[0].isalpha())
-                    assert(type(residue[1]) == int and residue[1] > 0)
+                    if type(residue) == list:
+                        assert(type(residue[0]) == str and residue[0].isalpha())
+                        assert(type(residue[1]) == int and residue[1] > 0)
+
+                    elif type(residue) == str:
+                        tmp = residue.split(":")
+                        assert(len(tmp) == 2)
+                        assert(type(tmp[0]) == str and tmp[0].isalpha())
+                        assert(int(tmp[1]) > 0)
+
+                    else:
+                        raise ValueError
 
                 except ValueError:
                     raise ParameterError(f"Incorrect value provided for frozen residue: {residue}")
@@ -258,9 +454,16 @@ def valid_parameters(parameters: dict):
         else:
             for atom in parameters["Frozen atoms"]["Atoms"]:
                 try:
-                    assert(type(atom[0]) is str and atom[0].isalpha())
-                    assert(type(atom[1]) is int and atom[1] > 0)
-                    assert(type(atom[2]) is str and atom[2].isalpha())
+                    if type(atom) == list:
+                        assert(type(atom[0]) is str and atom[0].isalpha())
+                        assert(type(atom[1]) is int and atom[1] > 0)
+                        assert(type(atom[2]) is str)
+
+                    elif type(atom) == str:
+                        tmp = atom.split(":")
+                        assert(len(tmp) == 3)
+                        assert(tmp[0].isalpha())
+                        assert(int(tmp[1]) > 0)
 
                 except ValueError:
                     raise ParameterError(f"Incorrect value provided for frozen atom: {atom}")
@@ -271,15 +474,32 @@ def valid_parameters(parameters: dict):
                 assert(len( id) == 3)
                 assert(type(id[2]) is float and id[2] > 0)
 
-                assert(len(id[0]) == 3)
-                assert(type(id[0][0]) is str and id[0][0].isalpha())
-                assert(type(id[0][1]) is int and id[0][1] > 0)
-                assert(type(id[0][2]) is str and id[0][0].isalpha())
+                if type(id[0]) == list:
+                    assert(len(id[0]) == 3)
+                    assert(type(id[0][0]) is str and id[0][0].isalpha())
+                    assert(type(id[0][1]) is int and id[0][1] > 0)
+                    assert(type(id[0][2]) is str)
 
-                assert(len(id[1]) == 3)
-                assert (type(id[1][0]) is str and id[1][0].isalpha())
-                assert (type(id[1][1]) is int and id[1][1] > 0)
-                assert (type(id[1][2]) is str and id[1][0].isalpha())
+                elif type(id[0]) == str:
+                    tmp = id[0].split(":")
+                    assert(len(tmp) == 3)
+                    assert(tmp[0].isalpha())
+                    assert(int(tmp[1]) > 0)
+                
+                else:
+                    raise ValueError
+                
+                if type(id[1]) is list:
+                    assert(len(id[1]) == 3)
+                    assert (type(id[1][0]) is str and id[1][0].isalpha())
+                    assert (type(id[1][1]) is int and id[1][1] > 0)
+                    assert (type(id[1][2]) is str)
+
+                elif type(id[1]) is str:
+                    tmp = id[1].split(":")
+                    assert(len(tmp) == 3)
+                    assert(tmp[0].isalpha())
+                    assert(int(tmp[1]) > 0)
 
                 assert(id[0] != id[1])
 
@@ -292,7 +512,7 @@ def valid_parameters(parameters: dict):
     else:
         for command in parameters["Commands"]:
             try:
-                assert(type(command) is dict)
+                assert(type(parameters["Commands"][command]) is dict)
 
             except ValueError:
                 raise ParameterError(f"Command provided is not a dictionary: {command}")
@@ -446,12 +666,12 @@ def make_state_file(parameters: dict, pdbName):
         # Jack thinks it is the segfault mike wrote in his HACK ALERT section
         # I have emailed the Dohkyan group regarding it...its only for certain pdbs...
         with Popen(
-                f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                f"{os.path.join(phd_config['PATHS']['DMD_DIR'], 'complex.linux')} -P {phd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True, env=os.environ) as shell:
             while shell.poll() is None:
                 logger.debug(shell.stdout.readline().strip())
 
-        attempts = 3
+        attempts = 100
         if not os.path.isfile("state"):
             logger.warning("Could not make state file first time around, could be a segfault error")
             logger.warning("Going to reorder the bond list in the mol2 files!")
@@ -492,7 +712,7 @@ def make_state_file(parameters: dict, pdbName):
                         mf.write(f"{bond[0]}\t{bond[1]}\t{bond[2]}\t{bond[3]}\n")
 
             with Popen(
-                    f"complex.linux -P {dmd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
+                    f"{os.path.join(phd_config['PATHS']['DMD_DIR'], 'complex.linux')} -P {phd_config['PATHS']['parameters']} -I {pdbName} -T topparam -D 200 -p param -s state -C inConstr -c outConstr",
                     stdout=PIPE, stderr=subprocess.STDOUT, universal_newlines=True, shell=True,
                     env=os.environ) as shell:
                 while shell.poll() is None:
@@ -520,9 +740,8 @@ def make_movie(initial_pdb, movie_file, output_pdb):
     """
     try:
         logger.debug("Creating movie file")
-        print(dmd_config['PATHS']['parameters'])
         with Popen(
-                f"complex_M2P.linux {dmd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
+                f"{os.path.join(phd_config['PATHS']['DMD_DIR'], 'complex_M2P.linux')} {phd_config['PATHS']['parameters']} {initial_pdb} topparam {movie_file} {output_pdb} inConstr",
                 stdout=PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True, shell=True,
                 env=os.environ) as shell:
             while shell.poll() is None:
@@ -530,3 +749,122 @@ def make_movie(initial_pdb, movie_file, output_pdb):
     except OSError:
         logger.exception("Error calling complex_M2P.linux")
         raise
+
+    if not os.path.isfile(output_pdb):
+        raise FileNotFoundError(output_pdb)
+
+def load_movie(movie_file:str):
+    if not os.path.isfile(movie_file):
+        logger.error(f"File does not exist: {movie_file}")
+        raise ValueError(movie_file)
+
+    #ENDMDL is what seperates the proteins in the movie file
+    proteins = []
+    try:
+        with open(movie_file, 'r') as mf:
+            chains = []
+            resNum = 0
+            chainLet = ""
+
+            protein_number = 0
+
+            for line in mf:
+                try:
+                    if "ATOM" == line[0:4] or "HETATM" == line[0:6]:
+                        tmpAtom = atom.Atom(line)
+                        if chainLet != line[21:22]:
+                            chainLet = line[21:22]
+                            chains.append(chain.Chain(chainLet))
+                            resNum = 0
+
+                        if resNum != int(line[22:26]):
+                            resNum = int(line[22:26])
+                            chains[-1].add_residue(residue.Residue(line))
+               
+                        chains[-1].residues[-1].add_atom(tmpAtom)
+
+                    elif "ENDMDL" in line:
+                        if chains:
+                            proteins.append(protein.Protein(f"{movie_file.split('.')[0]}_{protein_number:0>4d}", chains.copy()))   
+
+                        else:
+                            logger.warn("Empty chain while loading in movie")
+                            protein_number -= 1
+
+                        chains = []
+                        resNum = 0
+                        chainLet = ""
+                        protein_number += 1
+
+                except ValueError:
+                    logger.exception(f"Error reading in model {protein_number} in {movie_file}")
+                    raise
+
+    except IOError:
+        logger.exception(f"Error opening {file}")
+        raise
+
+    logger.debug("Successfully loaded in the file!")
+    return proteins
+
+def last_frame(movie_file):
+    return load_movie(movie_file)[-1]
+
+def print_header():
+    main_logger = logging.getLogger("phd3")
+
+    main_logger.info("")
+    main_logger.info("==============================================================================")
+    main_logger.info("")
+    main_logger.info("                      _______  __   __  ______    _______ ")
+    main_logger.info("                     |       ||  | |  ||      |  |       |")
+    main_logger.info("                     |    _  ||  |_|  ||  _    | |___    |")
+    main_logger.info("                     |   |_| ||       || | |   |  ___|   |")
+    main_logger.info("                     |    ___||       || |_|   | |___    |")
+    main_logger.info("                     |   |    |   _   ||       |  ___|   |")
+    main_logger.info("                     |___|    |__| |__||______|  |_______|")
+    main_logger.info("")
+    main_logger.info("")
+    main_logger.info("--------------------[Protein Hybrid Discrete Dynamics/DFT]--------------------")
+    main_logger.info("")
+    main_logger.info("[Version]            ==>>    1.0.0")
+    main_logger.info("")
+    main_logger.info("[Idea and Director]  ==>>    Anastassia N. Alexandrova ")
+    main_logger.info("[Idea and Director]  ==>>    Manuel Sparta")
+    main_logger.info("[Program Developer]  ==>>    Matthew R. Hennefarth")
+    main_logger.info("[Titrate Developer]  ==>>    David J. Reilley")
+    main_logger.info("")
+    main_logger.info("[Research Group]     ==>>    Alexandrova Research Group")
+    main_logger.info("                     ==>>    University of California, Los Angeles")
+    main_logger.info("")
+    main_logger.info("---------------------------------[References]---------------------------------")
+    main_logger.info("")
+    main_logger.info(">>>> Quantum Mechanics/Discrete Molecular Dynamics (QM/DMD) >>>>")
+    main_logger.info("==>> M. Sparta, D. Shirvanyants, F. Ding,") 
+    main_logger.info("     N. V. Dokholyan, A. N. Alexandrova")
+    main_logger.info("     Hybrid Dynamics Simulation Engine for Metalloproteins")
+    main_logger.info("     Biophys J. 103: 4 (2012)")
+    main_logger.info("==>> N. M. Gallup, A. N. Alexandrova")
+    main_logger.info("     Use of QM/DMD as a Multiscale Approach to Modeling Metalloenzymes")
+    main_logger.info("     Methods Enzymol. 577 (2016)")
+    main_logger.info("")
+    main_logger.info(">>>> Titratable DMD >>>>")
+    main_logger.info("==>> D. J. Reilley, A. N. Alexandrova")
+    main_logger.info("     Manuscript in Preparation (2020).")
+    main_logger.info("")
+    main_logger.info(">>>> piDMD >>>>")
+    main_logger.info("==>> D. Shirvanyants, F. Ding, D. Tsao,")
+    main_logger.info("     S. Ramachandran, N. V. Dokholyan")
+    main_logger.info("     DMD: an Efficient and Versatile Simulation Method for Fine")
+    main_logger.info("     Protein Characterization")
+    main_logger.info("     J. Phys. Chem. 116: 29 (2012)")
+    main_logger.info("")
+    main_logger.info(">>>> TURBOMOLE >>>>")
+    main_logger.info("==>> R. Ahlrichs, M. Baer, M. Haeser, H. Horn,")
+    main_logger.info("     C. Koelmel")
+    main_logger.info("     Electronic structure calculations on workstation")
+    main_logger.info("     computers: the program system TURBOMOLE")
+    main_logger.info("     Chem. Phys. Lett. 162: 165 (1989)")
+    main_logger.info("")
+    main_logger.info("==============================================================================")
+    main_logger.info("")
