@@ -225,38 +225,43 @@ class dmd_simulation:
                 if self._titration is None:
                     logger.warning("Titration feature cannot be turned on in the middle of a run")
                     raise ValueError("Titration turned on")
-                
-                if os.path.isfile(updated_parameters["Movie File"]):
-                    utilities.make_movie("initial.pdb", updated_parameters["Movie File"], "_tmpMovie.pdb")
-                    #Append to movie
-                    with open("_tmpMovie.pdb", 'r') as tmpMovie, open("movie.pdb", 'a') as movie:
-                        for line in tmpMovie:
-                            movie.write(line)
 
-                    last_frame = utilities.last_frame("_tmpMovie.pdb")
+                if os.path.isfile(updated_parameters["Echo File"]) and os.path.isfile(updated_parameters["Restart File"]):
+                    #We can do the propka eval
+                    if os.path.isfile(updated_parameters["Movie File"]):
+                        utilities.make_movie("initial.pdb", updated_parameters["Movie File"], "_tmpMovie.pdb")
+                        #Append to movie
+                        with open("_tmpMovie.pdb", 'r') as tmpMovie, open("movie.pdb", 'a') as movie:
+                            for line in tmpMovie:
+                                movie.write(line)
+
+                        last_frame = utilities.last_frame("_tmpMovie.pdb")
+                        
+                        #Clean up our mess
+                        logger.debug("Removing _tmpMovie.pdb file")
+                        os.remove("_tmpMovie.pdb")
+                        logger.debug(f"Removing {updated_parameters['Movie File']} file")
+                        os.remove(updated_parameters["Movie File"])
+                        
+                    else:
+                        last_frame = utilities.load_pdb("initial.pdb")
                     
-                    #Clean up our mess
-                    logger.debug("Removing _tmpMovie.pdb file")
-                    os.remove("_tmpMovie.pdb")
-                    logger.debug(f"Removing {updated_parameters['Movie File']} file")
-                    os.remove(updated_parameters["Movie File"])
+                    if os.path.isfile(updated_parameters['Restart File']):
+                        logger.debug(f"Removing {updated_parameters['Restart File']} file")
+                        os.remove(updated_parameters['Restart File'])
+
+                    #TODO check to see if any of the protonation states are invalids (ie, they affect statically held protonation
+                    #states defined by the user)
+                    updated_parameters["Custom protonation states"] = self._titration.evaluate_pkas(last_frame)
+
+                    sj = setupDMDjob(parameters=updated_parameters, pro=last_frame)
                     
+                    #This will not do a quick dmd setup, so we should be able to expedite that slightly. Also no topparam file either
+                    #creates state, start and outConstr, inConstr
+                    sj.titrate_setup()
+
                 else:
-                    last_frame = utilities.load_pdb("initial.pdb")
-                
-                if os.path.isfile(updated_parameters['Restart File']):
-                    logger.debug(f"Removing {updated_parameters['Restart File']} file")
-                    os.remove(updated_parameters['Restart File'])
-
-                #TODO check to see if any of the protonation states are invalids (ie, they affect statically held protonation
-                #states defined by the user)
-                updated_parameters["Custom protonation states"] = self._titration.evaluate_pkas(last_frame)
-
-                sj = setupDMDjob(parameters=updated_parameters, pro=last_frame)
-                
-                #This will not do a quick dmd setup, so we should be able to expedite that slightly. Also no topparam file either
-                #creates state, start and outConstr, inConstr
-                sj.titrate_setup()
+                    self._titration._step += 1
 
                 #We don't want to use the restart file, so set last var to False
                 self.run_dmd(updated_parameters, self._start_time, False)
