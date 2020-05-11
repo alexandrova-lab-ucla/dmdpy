@@ -5,8 +5,8 @@ import sys
 import os
 import argparse
 
-from dmdpy.utility import utilities
-import dmdpy.dmd_simulation
+from ..utility import utilities
+from ..dmd_simulation import dmd_simulation
 
 
 def main():
@@ -39,7 +39,7 @@ def main():
 
     try:
         logger.debug("Attempting to begin the calculation")
-        c = dmdpy.dmd_simulation(cores=args.cores[0], time=args.time[0], run_dir=args.scratch_directory[0])
+        c = dmd_simulation(cores=args.cores[0], time=args.time[0], run_dir=args.scratch_directory[0])
 
     except:
         logger.exception("Check the error")

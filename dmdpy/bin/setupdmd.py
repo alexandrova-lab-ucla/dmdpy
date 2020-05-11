@@ -4,9 +4,9 @@ import logging
 import sys
 
 
-import dmdpy.utility.utilities as utilities
-from dmdpy.setupjob import setupDMDjob
-from dmdpy.utility.exceptions import ParameterError
+from ..utility import utilities
+from ..dmd_simulation import setupDMDjob
+from ..utility.exceptions import ParameterError
 
 
 def main():
