@@ -5,8 +5,8 @@ import sys
 import os
 import argparse
 
-from ..utility import utilities
-from ..dmd_simulation import dmd_simulation
+from dmdpy.utility import utilities
+from dmdpy.dmd_simulation import dmd_simulation
 
 
 def main():
