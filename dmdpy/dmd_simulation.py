@@ -22,7 +22,7 @@ import numpy as np
 import dmdpy.protein as protein
 import dmdpy.utility.utilities as utilities
 from dmdpy.setupjob import setupDMDjob
-from dmdpy.utility.exceptions import ParameterError
+from dmdpy.utility.exceptions import Propka_Error, ParameterError
 from dmdpy.titrate import titrate_protein
 from dmdpy.bin import submitdmd
 
@@ -207,6 +207,7 @@ class dmd_simulation:
         # We loop over the steps here and will pop elements off the beginning of the dictionary
         while len(self._commands.values()) != 0:
             logger.info("")
+            repeat = False
             if self._timer_went_off:
                 logger.info("Timer went off, not continuing onto next command")
                 break
@@ -252,10 +253,41 @@ class dmd_simulation:
 
                     #TODO check to see if any of the protonation states are invalids (ie, they affect statically held protonation
                     #states defined by the user)
-                    updated_parameters["Custom protonation states"] = self._titration.evaluate_pkas(last_frame)
+                    try:
+                        updated_parameters["Custom protonation states"] = self._titration.evaluate_pkas(last_frame)
+
+                    except Propka_Error:
+                        #grab last initial.pdb, echo and movie.pdb and place over current initial, echo, and movie.pdb and
+                        #add updated_parameters to list
+                        logger.warning("Going back one iteration")
+                        if not os.path.isfile("_last_echo") or not os.path.isfile("_last_movie.pdb"):
+                            logger.error("Cannot go back a step!")
+                            raise 
+                        
+                        shutil.move("_last_echo", updated_parameters["Echo File"])
+                        last_frame = utilities.last_frame("_last_movie.pdb")
+                        shutil.move("_last_movie.pdb", updated_parameters["Movie File"])
+                        
+                        self._titration._step -=1
+                        repeat = True
+                        updated_parameters["Custom protonation states"] = self._titration.evaluate_pkas(last_frame)
+
+                    else:
+                        if os.path.isfile("_last_movie.pdb"):
+                            os.remove("_last_movie.pdb")
+
+                        if os.path.isfile("movie.pdb"):
+                            shutil.copy("movie.pdb", "_last_movie.pdb")
+                        
+                        if os.path.isfile("_last_echo"):
+                            os.remove("_last_echo")
+                        
+                        if os.path.isfile(updated_parameters["Echo File"]):
+                            shutil.copy(updated_parameters["Echo File"], "_last_echo")
+
 
                     sj = setupDMDjob(parameters=updated_parameters, pro=last_frame)
-                    
+
                     #This will not do a quick dmd setup, so we should be able to expedite that slightly. Also no topparam file either
                     #creates state, start and outConstr, inConstr
                     sj.titrate_setup()
@@ -282,9 +314,10 @@ class dmd_simulation:
             self.print_summary(updated_parameters['Time'], end-start)
 
             # Assuming we finished correctly, we pop off the last issue
-            self._commands.pop(list(self._commands.keys())[0])
-            # Update the new start time!
-            self._start_time += updated_parameters["Time"]
+            if not repeat:
+                self._commands.pop(list(self._commands.keys())[0])
+                # Update the new start time!
+                self._start_time += updated_parameters["Time"]
 
         if self._commands:
             logger.info("Did not finish all of the commands, will save the remaining commands")
