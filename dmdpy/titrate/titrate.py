@@ -272,7 +272,6 @@ class titrate_protein:
                 self._updated_protonation.append(change)
 
         #Assign protonations to self._updated_protonation
-        print(self._updated_protonation)
         return self._updated_protonation
 
 
